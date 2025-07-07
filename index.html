@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>滿射個數計算器</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light p-4">
+  <div class="container">
+    <h1 class="mb-4">滿射個數計算器 (Onto Function Count)</h1>
+    
+    <div class="row mb-3">
+      <div class="col-md-2">
+        <label for="inputM" class="form-label">m (定義域個數)</label>
+        <input type="number" class="form-control" id="inputM" value="5" min="0">
+      </div>
+      <div class="col-md-2">
+        <label for="inputN" class="form-label">n (對應值個數)</label>
+        <input type="number" class="form-control" id="inputN" value="3" min="0">
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button class="btn btn-primary w-100" onclick="calculate()">計算</button>
+      </div>
+    </div>
+
+    <div class="alert alert-info" id="resultArea">請輸入數值並點擊計算。</div>
+  </div>
+
+  <script>
+    function factorial(n) {
+      if (n === 0 || n === 1) return 1;
+      let result = 1;
+      for (let i = 2; i <= n; i++) result *= i;
+      return result;
+    }
+
+    function combination(n, k) {
+      if (k > n) return 0;
+      return factorial(n) / (factorial(k) * factorial(n - k));
+    }
+
+    // 第二類史特林數 S(m, n)
+    function stirlingSecondKind(m, n) {
+      let total = 0;
+      for (let i = 0; i <= n; i++) {
+        const sign = (i % 2 === 0) ? 1 : -1;
+        const comb = combination(n, i);
+        total += sign * comb * Math.pow(n - i, m);
+      }
+      return total / factorial(n);
+    }
+
+    // 滿射個數
+    function countOntoFunctions(m, n) {
+      if (n > m) return 0;
+      return factorial(n) * stirlingSecondKind(m, n);
+    }
+
+    function calculate() {
+      const m = parseInt(document.getElementById('inputM').value);
+      const n = parseInt(document.getElementById('inputN').value);
+      const result = countOntoFunctions(m, n);
+      document.getElementById('resultArea').innerText = `滿射個數為：${result}`;
+    }
+  </script>
+</body>
+</html>
