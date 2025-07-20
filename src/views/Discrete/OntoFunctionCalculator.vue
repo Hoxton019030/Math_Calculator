@@ -1,21 +1,28 @@
-from itertools import permutations
-from more_itertools import set_partitions
+<script setup>
+import { ref } from 'vue'
+import { defineEmits } from 'vue'
 
-def generate_ordered_tied_rankings(horses):
-    result = set()
-    for partition in set_partitions(horses):
-        # 每個 partition 是無序的群組集合，我們要對群組進行排序
-        for group_order in permutations(partition):
-            # 對每個 group 內排序，讓相同內容可以去重
-            normalized = tuple(tuple(sorted(group)) for group in group_order)
-            result.add(normalized)
-    return sorted(result)
+const emit = defineEmits(['calculate'])
+const m = ref(5)
+const n = ref(3)
 
-# 測試
-horses = ['A', 'B', 'C', 'D']
-rankings = generate_ordered_tied_rankings(horses)
+function emitCalculate() {
+  emit('calculate', m.value, n.value)
+}
+</script>
 
-# 顯示結果
-for i, ranking in enumerate(rankings, 1):
-    display = [f"{i+1}st: {' '.join(group)}" for i, group in enumerate(ranking)]
-    print(f"{i}: {ranking}")
+<template>
+  <div class="row mb-3">
+    <div class="col-md-2">
+      <label for="inputM" class="form-label">m (定義域個數)</label>
+      <input id="inputM" type="number" class="form-control" v-model.number="m" min="0" />
+    </div>
+    <div class="col-md-2">
+      <label for="inputN" class="form-label">n (對應值個數)</label>
+      <input id="inputN" type="number" class="form-control" v-model.number="n" min="0" />
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <button class="btn btn-primary w-100" @click="emitCalculate">計算</button>
+    </div>
+  </div>
+</template>
