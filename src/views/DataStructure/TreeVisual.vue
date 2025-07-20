@@ -45,7 +45,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 
-const inputText = ref('A(_(B,C),D)')
+const inputText = ref('A(_,B(C,D)))')
 const canvas = ref(null)
 const inputField = ref(null)
 const canvasWidth = 800
