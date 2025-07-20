@@ -6,10 +6,12 @@
       <div class="col-md-8">
         <div class="mb-3 d-flex gap-2 flex-wrap">
           <input
+            ref="inputField"
             v-model="inputText"
             type="text"
-            placeholder="輸入樹結構，例如 A(B(D,E),C(F)) 或 -(+,÷)"
+            placeholder="輸入樹結構，例如 A(B(D,E),C(F)) 或 A(_(B,C))"
             class="form-control"
+            @input="autoCompleteParentheses"
           />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
         </div>
@@ -43,8 +45,9 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 
-const inputText = ref('A(B(D,E),C(F,D))')
+const inputText = ref('A(_(B,C),D)')
 const canvas = ref(null)
+const inputField = ref(null)
 const canvasWidth = 800
 const canvasHeight = 600
 const history = ref([])
@@ -54,10 +57,10 @@ function parseTree(str) {
   let index = 0
   function parseNode() {
     let name = ''
-    while (index < str.length && /[A-Za-z0-9+\-÷]/.test(str[index])) { // Updated to include +, -, ÷
+    while (index < str.length && /[A-Za-z0-9+\-÷_]/.test(str[index])) {
       name += str[index++]
     }
-    const node = { name, children: [] }
+    const node = { name, children: [], isPlaceholder: name === '_' }
     if (str[index] === '(') {
       index++
       while (str[index] !== ')') {
@@ -81,7 +84,12 @@ function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
     node.x = xOffset.x
     xOffset.x += 120
   } else {
-    node.x = (node.children[0].x + node.children[node.children.length - 1].x) / 2
+    if (node.isPlaceholder) {
+      node.x = xOffset.x + 60
+      xOffset.x = node.x + 60
+    } else {
+      node.x = (node.children[0].x + node.children[node.children.length - 1].x) / 2
+    }
   }
   return node
 }
@@ -101,16 +109,18 @@ function drawTree() {
 function drawNode(ctx, node) {
   const radius = 30
   ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.arc(node.x + 40, node.y + 40, radius, 0, 2 * Math.PI)
-  ctx.fillStyle = '#fff'
-  ctx.fill()
-  ctx.stroke()
-  ctx.fillStyle = '#000'
-  ctx.font = '18px Arial'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(node.name, node.x + 40, node.y + 40)
+  if (!node.isPlaceholder) {
+    ctx.beginPath()
+    ctx.arc(node.x + 40, node.y + 40, radius, 0, 2 * Math.PI)
+    ctx.fillStyle = '#fff'
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#000'
+    ctx.font = '18px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(node.name, node.x + 40, node.y + 40)
+  }
 
   for (let child of node.children) {
     const dx = (child.x + 40) - (node.x + 40)
@@ -118,15 +128,18 @@ function drawNode(ctx, node) {
     const distance = Math.sqrt(dx * dx + dy * dy)
     if (distance === 0) continue
 
-    const parentEdgeX = node.x + 40 + (dx * radius) / distance
-    const parentEdgeY = node.y + 40 + (dy * radius) / distance
-    const childEdgeX = child.x + 40 - (dx * radius) / distance
-    const childEdgeY = child.y + 40 - (dy * radius) / distance
+    // Only draw line if child is not a placeholder
+    if (!child.isPlaceholder) {
+      const parentEdgeX = node.x + 40 + (dx * radius) / distance
+      const parentEdgeY = node.y + 40 + (dy * radius) / distance
+      const childEdgeX = child.x + 40 - (dx * radius) / distance
+      const childEdgeY = child.y + 40 - (dy * radius) / distance
 
-    ctx.beginPath()
-    ctx.moveTo(parentEdgeX, parentEdgeY)
-    ctx.lineTo(childEdgeX, childEdgeY)
-    ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(parentEdgeX, parentEdgeY)
+      ctx.lineTo(childEdgeX, childEdgeY)
+      ctx.stroke()
+    }
 
     drawNode(ctx, child)
   }
@@ -150,6 +163,22 @@ function loadHistoryItem(item) {
 function clearHistory() {
   history.value = []
   localStorage.removeItem(HISTORY_KEY)
+}
+
+function autoCompleteParentheses(event) {
+  const input = inputField.value
+  const cursorPosition = input.selectionStart
+  const lastChar = input.value.slice(cursorPosition - 1, cursorPosition)
+
+  if (lastChar === '(') {
+    const newValue = input.value.slice(0, cursorPosition) + ')' + input.value.slice(cursorPosition)
+    inputText.value = newValue
+
+    nextTick(() => {
+      input.selectionStart = cursorPosition
+      input.selectionEnd = cursorPosition
+    })
+  }
 }
 
 onMounted(() => {
