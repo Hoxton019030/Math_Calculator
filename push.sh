@@ -11,3 +11,5 @@ message=$(date "+%Y-%m-%d commit")
 
 # 提交 commit
 git commit -m "$message"
+
+git push

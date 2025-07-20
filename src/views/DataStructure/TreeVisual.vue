@@ -1,24 +1,54 @@
 <template>
-  <div class="p-4">
-    <h1 class="text-2xl font-bold mb-4">Canvas 樹狀結構視覺化</h1>
-    <input
-      v-model="inputText"
-      type="text"
-      placeholder="輸入樹結構，例如 A(B(D,E),C(F))"
-      class="border px-2 py-1 mb-4 w-full"
-    />
-    <button @click="drawTree" class="bg-blue-500 text-white px-4 py-2 rounded">建立樹</button>
-    <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border mt-4"></canvas>
+  <div class="container py-4">
+    <h1 class="mb-4 text-center">Canvas 樹狀結構視覺化</h1>
+    <div class="row">
+      <!-- 左邊輸入和畫布區 -->
+      <div class="col-md-8">
+        <div class="mb-3 d-flex gap-2 flex-wrap">
+          <input
+            v-model="inputText"
+            type="text"
+            placeholder="輸入樹結構，例如 A(B(D,E),C(F))"
+            class="form-control"
+          />
+          <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
+        </div>
+        <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border"></canvas>
+      </div>
+      <!-- 右邊歷史紀錄區 -->
+      <div class="col-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">歷史紀錄</h5>
+          <button class="btn btn-sm btn-outline-danger" @click="clearHistory">
+            清除全部
+          </button>
+        </div>
+        <ul class="list-group">
+          <li
+            v-for="(item, index) in history"
+            :key="index"
+            class="list-group-item d-flex justify-content-between align-items-center"
+            style="cursor: pointer"
+            @click="loadHistoryItem(item)"
+          >
+            <span>{{ item }}</span>
+          </li>
+          <li v-if="history.length === 0" class="list-group-item text-muted">尚無紀錄</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 
 const inputText = ref('A(B(D,E),C(F))')
 const canvas = ref(null)
 const canvasWidth = 800
 const canvasHeight = 600
+const history = ref([])
+const HISTORY_KEY = 'tree_history'
 
 function parseTree(str) {
   let index = 0
@@ -42,7 +72,7 @@ function parseTree(str) {
 }
 
 function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
-  const node = { ...root, x: 0, y: depth * 80, children: [] }
+  const node = { ...root, x: 0, y: depth * 60, children: [] }
   for (let child of root.children) {
     const childNode = calculatePositions(child, depth + 1, xOffset)
     node.children.push(childNode)
@@ -59,14 +89,17 @@ function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
 function drawTree() {
   const ctx = canvas.value.getContext('2d')
   ctx.clearRect(0, 0, canvasWidth, canvasHeight)
-  const tree = parseTree(inputText.value)
-  const treeWithPos = calculatePositions(tree)
-  drawNode(ctx, treeWithPos)
+  try {
+    const tree = parseTree(inputText.value)
+    const treeWithPos = calculatePositions(tree)
+    drawNode(ctx, treeWithPos)
+  } catch (err) {
+    console.error('Invalid tree structure:', err)
+  }
 }
 
 function drawNode(ctx, node) {
   const radius = 20
-  // Draw node circle
   ctx.beginPath()
   ctx.arc(node.x + 40, node.y + 40, radius, 0, 2 * Math.PI)
   ctx.fillStyle = '#fff'
@@ -77,32 +110,61 @@ function drawNode(ctx, node) {
   ctx.textBaseline = 'middle'
   ctx.fillText(node.name, node.x + 40, node.y + 40)
 
-  // Draw lines to children
   for (let child of node.children) {
-    // Calculate angle between parent and child
     const dx = (child.x + 40) - (node.x + 40)
     const dy = (child.y + 40) - (node.y + 40)
     const distance = Math.sqrt(dx * dx + dy * dy)
-    if (distance === 0) continue // Prevent division by zero
+    if (distance === 0) continue
 
-    // Calculate points on the circle edges
     const parentEdgeX = node.x + 40 + (dx * radius) / distance
     const parentEdgeY = node.y + 40 + (dy * radius) / distance
     const childEdgeX = child.x + 40 - (dx * radius) / distance
     const childEdgeY = child.y + 40 - (dy * radius) / distance
 
-    // Draw line from parent's edge to child's edge
     ctx.beginPath()
     ctx.moveTo(parentEdgeX, parentEdgeY)
     ctx.lineTo(childEdgeX, childEdgeY)
     ctx.stroke()
 
-    // Recursively draw child nodes
     drawNode(ctx, child)
   }
 }
 
-nextTick(() => drawTree())
+function saveAndDrawTree() {
+  if (inputText.value && !history.value.includes(inputText.value)) {
+    history.value.unshift(inputText.value)
+    if (history.value.length > 10) {
+      history.value.pop()
+    }
+  }
+  drawTree()
+}
+
+function loadHistoryItem(item) {
+  inputText.value = item
+  drawTree()
+}
+
+function clearHistory() {
+  history.value = []
+  localStorage.removeItem(HISTORY_KEY)
+}
+
+onMounted(() => {
+  const saved = localStorage.getItem(HISTORY_KEY)
+  if (saved) {
+    try {
+      history.value = JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to parse history from localStorage', e)
+    }
+  }
+  nextTick(() => drawTree())
+})
+
+watch(history, (newVal) => {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(newVal))
+}, { deep: true })
 </script>
 
 <style scoped>
