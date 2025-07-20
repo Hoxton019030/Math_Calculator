@@ -98,6 +98,17 @@ function saveCanvasSize() {
   }))
 }
 
+function loadHistory() {
+  const savedHistory = localStorage.getItem(HISTORY_KEY)
+  if (savedHistory) {
+    history.value = JSON.parse(savedHistory)
+  }
+}
+
+function saveHistory() {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value))
+}
+
 function parseTree(str) {
   let index = 0
   function parseNode() {
@@ -262,6 +273,7 @@ function saveAndDrawTree() {
     if (history.value.length > 10) {
       history.value.pop()
     }
+    saveHistory()
     selectedNodes.value.clear()
   }
   drawTree()
@@ -276,6 +288,7 @@ function loadHistoryItem(item) {
 function clearHistory() {
   history.value = []
   selectedNodes.value.clear()
+  saveHistory()
   drawTree()
 }
 
@@ -327,13 +340,14 @@ async function copyCanvasToClipboard() {
 
 onMounted(() => {
   loadCanvasSize()
+  loadHistory()
   nextTick(() => drawTree())
 })
 
 watch(
   history,
   (newVal) => {
-    // 可以擴充歷史紀錄存儲邏輯
+    saveHistory()
   },
   { deep: true }
 )
