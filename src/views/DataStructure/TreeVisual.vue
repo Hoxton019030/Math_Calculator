@@ -15,14 +15,19 @@
           />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
         </div>
-        <canvas
-          ref="canvas"
-          :width="canvasWidth"
-          :height="canvasHeight"
-          class="border"
-          @click="handleCanvasClick"
-        ></canvas>
-
+        <div class="canvas-container" ref="canvasContainer">
+          <canvas
+            ref="canvas"
+            :width="canvasWidth"
+            :height="canvasHeight"
+            class="border"
+            @click="handleCanvasClick"
+          ></canvas>
+          <div
+            class="resize-handle"
+            @mousedown="startResize"
+          ></div>
+        </div>
         <div class="mt-3 d-flex gap-2 flex-wrap">
           <button class="btn btn-success" @click="copyCanvasToClipboard">
             截圖按鈕
@@ -68,12 +73,30 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 
 const inputText = ref('A(_,B(C,D))')
 const canvas = ref(null)
+const canvasContainer = ref(null)
 const inputField = ref(null)
-const canvasWidth = 800
-const canvasHeight = 400
+const canvasWidth = ref(800)
+const canvasHeight = ref(400)
 const history = ref([])
 const selectedNodes = ref(new Set())
 const HISTORY_KEY = 'tree_history'
+const CANVAS_SIZE_KEY = 'canvas_size'
+
+function loadCanvasSize() {
+  const savedSize = localStorage.getItem(CANVAS_SIZE_KEY)
+  if (savedSize) {
+    const { width, height } = JSON.parse(savedSize)
+    canvasWidth.value = Math.max(300, width) // Minimum width
+    canvasHeight.value = Math.max(200, height) // Minimum height
+  }
+}
+
+function saveCanvasSize() {
+  localStorage.setItem(CANVAS_SIZE_KEY, JSON.stringify({
+    width: canvasWidth.value,
+    height: canvasHeight.value
+  }))
+}
 
 function parseTree(str) {
   let index = 0
@@ -118,9 +141,8 @@ function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
 
 function drawTree() {
   const ctx = canvas.value.getContext('2d')
-  // 白色背景
   ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+  ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
   try {
     const tree = parseTree(inputText.value)
@@ -209,6 +231,31 @@ function handleCanvasClick(event) {
   }
 }
 
+function startResize(event) {
+  event.preventDefault()
+  const startX = event.clientX
+  const startY = event.clientY
+  const startWidth = canvasWidth.value
+  const startHeight = canvasHeight.value
+
+  function onMouseMove(moveEvent) {
+    const newWidth = startWidth + (moveEvent.clientX - startX)
+    const newHeight = startHeight + (moveEvent.clientY - startY)
+    canvasWidth.value = Math.max(300, newWidth) // Minimum width
+    canvasHeight.value = Math.max(200, newHeight) // Minimum height
+    saveCanvasSize()
+    drawTree()
+  }
+
+  function onMouseUp() {
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
+
 function saveAndDrawTree() {
   if (inputText.value && !history.value.includes(inputText.value)) {
     history.value.unshift(inputText.value)
@@ -232,7 +279,6 @@ function clearHistory() {
   drawTree()
 }
 
-// 括號自動補全及刪除時配對刪除
 function handleKeyDown(event) {
   const input = inputField.value
   const cursorPosition = input.selectionStart
@@ -260,7 +306,6 @@ function handleKeyDown(event) {
   }
 }
 
-// 複製畫布到剪貼簿
 const copySuccess = ref(false)
 async function copyCanvasToClipboard() {
   try {
@@ -281,6 +326,7 @@ async function copyCanvasToClipboard() {
 }
 
 onMounted(() => {
+  loadCanvasSize()
   nextTick(() => drawTree())
 })
 
@@ -296,6 +342,26 @@ watch(
 <style scoped>
 canvas {
   background-color: #f9fafb;
+}
+
+.canvas-container {
+  position: relative;
+  display: inline-block;
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 15px;
+  height: 15px;
+  background: #007bff;
+  cursor: se-resize;
+  border-radius: 3px;
+}
+
+.resize-handle:hover {
+  background: #0056b3;
 }
 
 .copy-toast {
