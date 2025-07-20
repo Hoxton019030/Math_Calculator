@@ -11,7 +11,7 @@
             type="text"
             placeholder="輸入樹結構，例如 A(B(D,E),C(F)) 或 A(_(B,C))"
             class="form-control"
-            @input="autoCompleteParentheses"
+            @keydown="handleKeyDown"
           />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
         </div>
@@ -45,7 +45,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 
-const inputText = ref('A(_,B(C,D)))')
+const inputText = ref('A(_,B(C,D))')
 const canvas = ref(null)
 const inputField = ref(null)
 const canvasWidth = 800
@@ -162,39 +162,54 @@ function loadHistoryItem(item) {
 
 function clearHistory() {
   history.value = []
-  localStorage.removeItem(HISTORY_KEY)
 }
 
-function autoCompleteParentheses(event) {
+// 改进的括号自动补全功能
+function handleKeyDown(event) {
   const input = inputField.value
   const cursorPosition = input.selectionStart
-  const lastChar = input.value.slice(cursorPosition - 1, cursorPosition)
+  const value = input.value
 
-  if (lastChar === '(') {
-    const newValue = input.value.slice(0, cursorPosition) + ')' + input.value.slice(cursorPosition)
+  // 处理退格键
+  if (event.key === 'Backspace') {
+    const charToDelete = value[cursorPosition - 1]
+    const charAfter = value[cursorPosition]
+    
+    // 如果要删除的是 ( 且后面是 )，则同时删除两个字符
+    if (charToDelete === '(' && charAfter === ')') {
+      event.preventDefault() // 阻止默认的删除行为
+      
+      const newValue = value.slice(0, cursorPosition - 1) + value.slice(cursorPosition + 1)
+      inputText.value = newValue
+      
+      nextTick(() => {
+        input.setSelectionRange(cursorPosition - 1, cursorPosition - 1)
+      })
+    }
+  }
+  
+  // 处理输入 (
+  else if (event.key === '(') {
+    event.preventDefault() // 阻止默认输入
+    
+    const newValue = value.slice(0, cursorPosition) + '()' + value.slice(cursorPosition)
     inputText.value = newValue
-
+    
+    // 将光标放在 ( 和 ) 之间
     nextTick(() => {
-      input.selectionStart = cursorPosition
-      input.selectionEnd = cursorPosition
+      input.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
     })
   }
 }
 
 onMounted(() => {
-  const saved = localStorage.getItem(HISTORY_KEY)
-  if (saved) {
-    try {
-      history.value = JSON.parse(saved)
-    } catch (e) {
-      console.error('Failed to parse history from localStorage', e)
-    }
-  }
+  // 移除 localStorage 相关功能，改为内存存储
   nextTick(() => drawTree())
 })
 
+// 监听历史记录变化（但不再保存到 localStorage）
 watch(history, (newVal) => {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(newVal))
+  // 历史记录变化时的处理，如果需要的话
 }, { deep: true })
 </script>
 
