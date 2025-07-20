@@ -11,9 +11,18 @@
 
     <div class="mt-4">
       <h6 class="text-secondary">離散數學</h6>
-      <ul class="list-unstyled ms-2">
-        <li><router-link class="text-white text-decoration-none" to="/discrete/onto">滿射個數計算器</router-link></li>
-      </ul>
+    <ul class="list-unstyled">
+  <li class="mb-2">
+    <router-link class="text-white text-decoration-none" to="/discrete/onto">
+      滿射個數計算器
+    </router-link>
+  </li>
+  <li class="mb-2">
+    <router-link class="text-white text-decoration-none" to="/discrete/combinatorics">
+      排列組合計算器
+    </router-link>
+  </li>
+</ul>
     </div>
   </div>
 </template>
