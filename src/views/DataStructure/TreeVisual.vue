@@ -8,7 +8,7 @@
           <input
             v-model="inputText"
             type="text"
-            placeholder="輸入樹結構，例如 A(B(D,E),C(F))"
+            placeholder="輸入樹結構，例如 A(B(D,E),C(F)) 或 -(+,÷)"
             class="form-control"
           />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
@@ -43,7 +43,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 
-const inputText = ref('A(B(D,E),C(F))')
+const inputText = ref('A(B(D,E),C(F,D))')
 const canvas = ref(null)
 const canvasWidth = 800
 const canvasHeight = 600
@@ -54,7 +54,7 @@ function parseTree(str) {
   let index = 0
   function parseNode() {
     let name = ''
-    while (index < str.length && /[A-Za-z0-9]/.test(str[index])) {
+    while (index < str.length && /[A-Za-z0-9+\-÷]/.test(str[index])) { // Updated to include +, -, ÷
       name += str[index++]
     }
     const node = { name, children: [] }
@@ -72,14 +72,14 @@ function parseTree(str) {
 }
 
 function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
-  const node = { ...root, x: 0, y: depth * 80, children: [] } // Increased from 60 to 80
+  const node = { ...root, x: 0, y: depth * 80, children: [] }
   for (let child of root.children) {
     const childNode = calculatePositions(child, depth + 1, xOffset)
     node.children.push(childNode)
   }
   if (node.children.length === 0) {
     node.x = xOffset.x
-    xOffset.x += 120 // Increased from 100 to 120
+    xOffset.x += 120
   } else {
     node.x = (node.children[0].x + node.children[node.children.length - 1].x) / 2
   }
