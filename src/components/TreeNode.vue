@@ -1,41 +1,52 @@
 <template>
   <div class="tree-node">
     <div class="node-circle">{{ node.name }}</div>
-    <div v-if="node.children && node.children.length" class="children">
-      <TreeNode
-        v-for="(child, index) in node.children"
-        :key="index"
-        :node="child"
-      />
-      <div
-        v-for="(child, index) in node.children"
-        :key="'line-' + index"
-        class="connection-line"
-        :style="{
-          left: `${(index / (node.children.length - 1 || 1)) * 100}%`,
-          '--target-x': `${(index / (node.children.length - 1 || 1)) * 100}%`
-        }"
-      ></div>
+    
+    <div v-if="node.children && node.children.length" class="children-wrapper">
+      <div class="vertical-line"></div>
+      
+      <div class="children-container">
+        <div v-if="node.children.length > 1" class="horizontal-line"></div>
+        
+        <div
+          v-for="(child, index) in node.children"
+          :key="index"
+          class="child-node-wrapper"
+        >
+          <div class="child-connection"></div>
+          
+          <TreeNode :node="child" />
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { defineProps } from 'vue';
+import TreeNode from './TreeNode.vue';
+import { onMounted, nextTick } from 'vue';
+
 defineProps({
   node: {
     type: Object,
-    required: true
-  }
-})
+    required: true,
+  },
+});
 </script>
 
 <style scoped>
+/* 確保所有元素在計算尺寸時都包含 padding 和 border */
+* {
+  box-sizing: border-box;
+}
+
 .tree-node {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px 0;
+  padding: 10px;
 }
 
 .node-circle {
@@ -49,42 +60,63 @@ defineProps({
   justify-content: center;
   font-weight: bold;
   position: relative;
-  z-index: 1;
+  z-index: 10;
 }
 
-.children {
+.children-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* 從父節點向下的垂直線 */
+.vertical-line {
+  position: absolute;
+  width: 2px;
+  height: 20px;
+  background-color: #333;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.children-container {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
   position: relative;
   width: 100%;
 }
 
-.connection-line {
+/* 連接所有子節點的水平線 */
+.horizontal-line {
   position: absolute;
-  width: 2px;
-  height: 0;
-  background-color: red;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  transform-origin: 50% 100%;
+  height: 2px;
+  background-color: #333;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
 }
 
-.connection-line::after {
-  content: "";
+.child-node-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1; /* 讓每個子節點均分空間 */
+  padding: 20px 10px 0;
+}
+
+/* 從水平線到每個子節點的垂直連線 */
+.child-connection {
   position: absolute;
   width: 2px;
-  height: calc(100vh - 100px); /* 確保線條夠長連接到子節點 */
-  background-color: red;
+  height: 20px;
+  background-color: #333;
   top: 0;
   left: 50%;
-  transform: translateX(-50%) translateY(100%);
-  transform-origin: 50% 0;
-}
-
-.children .tree-node {
-  position: relative;
-  margin: 0 20px;
+  transform: translateX(-50%);
 }
 </style>
