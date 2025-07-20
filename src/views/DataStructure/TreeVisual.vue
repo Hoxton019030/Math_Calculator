@@ -16,6 +16,12 @@
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
         </div>
         <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border"></canvas>
+
+        <!-- 多個截圖按鈕 -->
+        <div class="mt-3 d-flex gap-2 flex-wrap">
+          <button class="btn btn-success" @click="copyCanvasToClipboard">截圖按鈕</button>
+        </div>
+        <div v-if="copySuccess" class="copy-toast">已複製到剪貼簿！</div>
       </div>
       <!-- 右邊歷史紀錄區 -->
       <div class="col-md-4">
@@ -48,8 +54,8 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 const inputText = ref('A(_,B(C,D))')
 const canvas = ref(null)
 const inputField = ref(null)
-const canvasWidth = 800
-const canvasHeight = 600
+const canvasWidth = 500
+const canvasHeight = 400
 const history = ref([])
 const HISTORY_KEY = 'tree_history'
 
@@ -96,7 +102,10 @@ function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
 
 function drawTree() {
   const ctx = canvas.value.getContext('2d')
-  ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+  // 先填滿白底
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+  
   try {
     const tree = parseTree(inputText.value)
     const treeWithPos = calculatePositions(tree)
@@ -105,6 +114,7 @@ function drawTree() {
     console.error('Invalid tree structure:', err)
   }
 }
+
 
 function drawNode(ctx, node) {
   const radius = 30
@@ -128,7 +138,6 @@ function drawNode(ctx, node) {
     const distance = Math.sqrt(dx * dx + dy * dy)
     if (distance === 0) continue
 
-    // Only draw line if child is not a placeholder
     if (!child.isPlaceholder) {
       const parentEdgeX = node.x + 40 + (dx * radius) / distance
       const parentEdgeY = node.y + 40 + (dy * radius) / distance
@@ -201,15 +210,36 @@ function handleKeyDown(event) {
     })
   }
 }
+const copySuccess = ref(false)
+
+async function copyCanvasToClipboard() {
+  try {
+    const canvasEl = canvas.value
+    if (!canvasEl) return
+
+    const blob = await new Promise(resolve => canvasEl.toBlob(resolve))
+
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': blob })
+    ])
+
+    copySuccess.value = true
+    console.log(copySuccess.value)
+    setTimeout(() => {
+      copySuccess.value = false
+    }, 1500) // 1.5秒後隱藏提示
+
+  } catch (err) {
+    console.error(err)
+  }
+}
 
 onMounted(() => {
-  // 移除 localStorage 相关功能，改为内存存储
   nextTick(() => drawTree())
 })
 
-// 监听历史记录变化（但不再保存到 localStorage）
 watch(history, (newVal) => {
-  // 历史记录变化时的处理，如果需要的话
+  // 可擴充歷史紀錄存儲邏輯
 }, { deep: true })
 </script>
 
@@ -217,4 +247,18 @@ watch(history, (newVal) => {
 canvas {
   background-color: #f9fafb;
 }
+.copy-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #4caf50;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  z-index: 9999;
+  user-select: none;
+  font-weight: 600;
+}
+
 </style>
