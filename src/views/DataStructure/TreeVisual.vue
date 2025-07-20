@@ -72,14 +72,14 @@ function parseTree(str) {
 }
 
 function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
-  const node = { ...root, x: 0, y: depth * 60, children: [] }
+  const node = { ...root, x: 0, y: depth * 80, children: [] } // Increased from 60 to 80
   for (let child of root.children) {
     const childNode = calculatePositions(child, depth + 1, xOffset)
     node.children.push(childNode)
   }
   if (node.children.length === 0) {
     node.x = xOffset.x
-    xOffset.x += 80
+    xOffset.x += 120 // Increased from 100 to 120
   } else {
     node.x = (node.children[0].x + node.children[node.children.length - 1].x) / 2
   }
@@ -99,13 +99,15 @@ function drawTree() {
 }
 
 function drawNode(ctx, node) {
-  const radius = 20
+  const radius = 30
+  ctx.lineWidth = 2
   ctx.beginPath()
   ctx.arc(node.x + 40, node.y + 40, radius, 0, 2 * Math.PI)
   ctx.fillStyle = '#fff'
   ctx.fill()
   ctx.stroke()
   ctx.fillStyle = '#000'
+  ctx.font = '18px Arial'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(node.name, node.x + 40, node.y + 40)
