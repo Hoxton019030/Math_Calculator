@@ -15,19 +15,32 @@
           />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
         </div>
-        <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border"></canvas>
+        <canvas
+          ref="canvas"
+          :width="canvasWidth"
+          :height="canvasHeight"
+          class="border"
+          @click="handleCanvasClick"
+        ></canvas>
 
-        <!-- 多個截圖按鈕 -->
         <div class="mt-3 d-flex gap-2 flex-wrap">
-          <button class="btn btn-success" @click="copyCanvasToClipboard">截圖按鈕</button>
+          <button class="btn btn-success" @click="copyCanvasToClipboard">
+            截圖按鈕
+          </button>
         </div>
         <div v-if="copySuccess" class="copy-toast">已複製到剪貼簿！</div>
       </div>
+
       <!-- 右邊歷史紀錄區 -->
       <div class="col-md-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div
+          class="d-flex justify-content-between align-items-center mb-3"
+        >
           <h5 class="mb-0">歷史紀錄</h5>
-          <button class="btn btn-sm btn-outline-danger" @click="clearHistory">
+          <button
+            class="btn btn-sm btn-outline-danger"
+            @click="clearHistory"
+          >
             清除全部
           </button>
         </div>
@@ -41,7 +54,9 @@
           >
             <span>{{ item }}</span>
           </li>
-          <li v-if="history.length === 0" class="list-group-item text-muted">尚無紀錄</li>
+          <li v-if="history.length === 0" class="list-group-item text-muted">
+            尚無紀錄
+          </li>
         </ul>
       </div>
     </div>
@@ -54,9 +69,10 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 const inputText = ref('A(_,B(C,D))')
 const canvas = ref(null)
 const inputField = ref(null)
-const canvasWidth = 500
+const canvasWidth = 800
 const canvasHeight = 400
 const history = ref([])
+const selectedNodes = ref(new Set())
 const HISTORY_KEY = 'tree_history'
 
 function parseTree(str) {
@@ -102,10 +118,10 @@ function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
 
 function drawTree() {
   const ctx = canvas.value.getContext('2d')
-  // 先填滿白底
+  // 白色背景
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, canvasWidth, canvasHeight)
-  
+
   try {
     const tree = parseTree(inputText.value)
     const treeWithPos = calculatePositions(tree)
@@ -115,14 +131,13 @@ function drawTree() {
   }
 }
 
-
 function drawNode(ctx, node) {
   const radius = 30
   ctx.lineWidth = 2
   if (!node.isPlaceholder) {
     ctx.beginPath()
     ctx.arc(node.x + 40, node.y + 40, radius, 0, 2 * Math.PI)
-    ctx.fillStyle = '#fff'
+    ctx.fillStyle = selectedNodes.value.has(`${node.x},${node.y}`) ? '#ff6666' : '#fff'
     ctx.fill()
     ctx.stroke()
     ctx.fillStyle = '#000'
@@ -136,7 +151,7 @@ function drawNode(ctx, node) {
     const dx = (child.x + 40) - (node.x + 40)
     const dy = (child.y + 40) - (node.y + 40)
     const distance = Math.sqrt(dx * dx + dy * dy)
-    if (distance === 0) continue
+    if (distance === 0) return
 
     if (!child.isPlaceholder) {
       const parentEdgeX = node.x + 40 + (dx * radius) / distance
@@ -154,81 +169,112 @@ function drawNode(ctx, node) {
   }
 }
 
+function handleCanvasClick(event) {
+  const rect = canvas.value.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+  const radius = 30
+
+  try {
+    const tree = parseTree(inputText.value)
+    const treeWithPos = calculatePositions(tree)
+    let nodeClicked = false
+    function checkNode(node) {
+      if (!node.isPlaceholder) {
+        const dx = x - (node.x + 40)
+        const dy = y - (node.y + 40)
+        if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+          const nodeKey = `${node.x},${node.y}`
+          if (selectedNodes.value.has(nodeKey)) {
+            selectedNodes.value.delete(nodeKey)
+          } else {
+            selectedNodes.value.add(nodeKey)
+          }
+          nodeClicked = true
+          return true
+        }
+      }
+      for (let child of node.children) {
+        if (checkNode(child)) return true
+      }
+      return false
+    }
+    checkNode(treeWithPos)
+    if (!nodeClicked) {
+      selectedNodes.value.clear()
+    }
+    drawTree()
+  } catch (err) {
+    console.error('Invalid tree structure:', err)
+  }
+}
+
 function saveAndDrawTree() {
   if (inputText.value && !history.value.includes(inputText.value)) {
     history.value.unshift(inputText.value)
     if (history.value.length > 10) {
       history.value.pop()
     }
+    selectedNodes.value.clear()
   }
   drawTree()
 }
 
 function loadHistoryItem(item) {
   inputText.value = item
+  selectedNodes.value.clear()
   drawTree()
 }
 
 function clearHistory() {
   history.value = []
+  selectedNodes.value.clear()
+  drawTree()
 }
 
-// 改进的括号自动补全功能
+// 括號自動補全及刪除時配對刪除
 function handleKeyDown(event) {
   const input = inputField.value
   const cursorPosition = input.selectionStart
   const value = input.value
 
-  // 处理退格键
   if (event.key === 'Backspace') {
     const charToDelete = value[cursorPosition - 1]
     const charAfter = value[cursorPosition]
-    
-    // 如果要删除的是 ( 且后面是 )，则同时删除两个字符
+
     if (charToDelete === '(' && charAfter === ')') {
-      event.preventDefault() // 阻止默认的删除行为
-      
+      event.preventDefault()
       const newValue = value.slice(0, cursorPosition - 1) + value.slice(cursorPosition + 1)
       inputText.value = newValue
-      
       nextTick(() => {
         input.setSelectionRange(cursorPosition - 1, cursorPosition - 1)
       })
     }
-  }
-  
-  // 处理输入 (
-  else if (event.key === '(') {
-    event.preventDefault() // 阻止默认输入
-    
+  } else if (event.key === '(') {
+    event.preventDefault()
     const newValue = value.slice(0, cursorPosition) + '()' + value.slice(cursorPosition)
     inputText.value = newValue
-    
-    // 将光标放在 ( 和 ) 之间
     nextTick(() => {
       input.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
     })
   }
 }
-const copySuccess = ref(false)
 
+// 複製畫布到剪貼簿
+const copySuccess = ref(false)
 async function copyCanvasToClipboard() {
   try {
     const canvasEl = canvas.value
     if (!canvasEl) return
 
-    const blob = await new Promise(resolve => canvasEl.toBlob(resolve))
+    const blob = await new Promise((resolve) => canvasEl.toBlob(resolve))
 
-    await navigator.clipboard.write([
-      new ClipboardItem({ 'image/png': blob })
-    ])
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
 
     copySuccess.value = true
-    console.log(copySuccess.value)
     setTimeout(() => {
       copySuccess.value = false
-    }, 1500) // 1.5秒後隱藏提示
-
+    }, 1500)
   } catch (err) {
     console.error(err)
   }
@@ -238,15 +284,20 @@ onMounted(() => {
   nextTick(() => drawTree())
 })
 
-watch(history, (newVal) => {
-  // 可擴充歷史紀錄存儲邏輯
-}, { deep: true })
+watch(
+  history,
+  (newVal) => {
+    // 可以擴充歷史紀錄存儲邏輯
+  },
+  { deep: true }
+)
 </script>
 
 <style scoped>
 canvas {
   background-color: #f9fafb;
 }
+
 .copy-toast {
   position: fixed;
   top: 20px;
@@ -255,10 +306,9 @@ canvas {
   color: white;
   padding: 8px 12px;
   border-radius: 4px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
   z-index: 9999;
   user-select: none;
   font-weight: 600;
 }
-
 </style>
