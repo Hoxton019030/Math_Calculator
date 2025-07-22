@@ -13,10 +13,10 @@
               <div class="d-flex align-items-center gap-3 w-100">
                 <div
                   class="drag-handle d-flex align-items-center justify-content-center"
-                  style="cursor: grab; width: 32px; height: 32px;"
+                  style="cursor: grab; width: 32px; height: 32px; font-size: 24px; user-select:none;"
                   title="拖曳改變順序"
                 >
-                  <i class="bi bi-list fs-4 text-secondary"></i>
+                  ⇆
                 </div>
                 <div class="fw-bold fs-3" style="width: 30px;">{{ term.type }}</div>
                 <div class="d-flex flex-column">
@@ -45,7 +45,7 @@
                   @click="removeTerm(index)"
                   title="刪除此項"
                 >
-                  <i class="bi bi-x-lg"></i>
+                  
                 </button>
               </div>
             </div>
@@ -54,13 +54,13 @@
 
         <div class="mb-3 d-flex gap-2 flex-wrap justify-content-center">
           <button class="btn btn-outline-secondary" @click="addTerm('C')">
-            <i class="bi bi-plus-lg"></i> 新增 C
+            + 新增 C
           </button>
           <button class="btn btn-outline-secondary" @click="addTerm('P')">
-            <i class="bi bi-plus-lg"></i> 新增 P
+            + 新增 P
           </button>
           <button class="btn btn-primary" @click="calculate">
-            <i class="bi bi-calculator-fill"></i> 計算
+            計算
           </button>
         </div>
 
@@ -84,35 +84,40 @@
         <ul class="list-group">
           <draggable
             v-model="history"
-            item-key="expression"
+            item-key="id"
             handle=".drag-handle-history"
             animation="200"
           >
             <template #item="{ element: item, index }">
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center">
+              <li class="list-group-item d-flex justify-content-between align-items-center flex-column align-items-start">
+                <div class="d-flex align-items-center w-100">
                   <div
                     class="drag-handle-history me-2"
-                    style="cursor: grab;"
+                    style="cursor: grab; font-size: 20px; user-select:none;"
                     title="拖曳改變順序"
                   >
-                    <i class="bi bi-list fs-5 text-secondary"></i>
+                    ⇆
                   </div>
                   <span
                     @click="loadHistoryItem(item.terms)"
-                    style="cursor: pointer;"
+                    style="cursor: pointer; flex-grow:1;"
                     :title="item.expression"
                   >
                     {{ item.expression }}
                   </span>
+                  <button
+                    class="btn btn-sm btn-outline-danger ms-2"
+                    @click.stop="deleteHistory(index)"
+                    title="刪除此筆歷史"
+                  >
+                    ×
+                  </button>
                 </div>
-                <button
-                  class="btn btn-sm btn-outline-danger ms-2"
-                  @click.stop="deleteHistory(index)"
-                  title="刪除此筆歷史"
-                >
-                  <i class="bi bi-trash"></i>
-                </button>
+              <small class="text-muted mt-1 w-100 text-end">
+  結果：
+  {{ item.result !== undefined ? item.result.toLocaleString() : '-' }}
+</small>
+
               </li>
             </template>
           </draggable>
@@ -127,7 +132,6 @@
 import { ref, onMounted, watch } from 'vue'
 import draggable from 'vuedraggable'
 
-// 組合公式
 function combination(n, r) {
   if (r > n) return 0
   if (r === 0 || r === n) return 1
@@ -138,7 +142,6 @@ function combination(n, r) {
   return Math.round(res)
 }
 
-// 排列公式
 function permutation(n, r) {
   if (r > n) return 0
   let res = 1
@@ -158,6 +161,7 @@ const errorText = ref('')
 const history = ref([])
 
 let idCounter = 2
+let historyIdCounter = 0
 const HISTORY_KEY = 'combinatorics_history'
 
 function addTerm(type) {
@@ -186,7 +190,7 @@ function calculate() {
     errorText.value = ''
 
     const savedTerms = terms.value.map(({ type, n, r }) => ({ type, n, r }))
-    const newItem = { expression, terms: savedTerms }
+    const newItem = { id: historyIdCounter++, expression, terms: savedTerms, result }
     history.value.unshift(newItem)
   } catch (err) {
     resultText.value = ''
@@ -214,8 +218,12 @@ onMounted(() => {
   if (saved) {
     try {
       history.value = JSON.parse(saved)
+      if (history.value.length) {
+        // 從最大id開始接續
+        historyIdCounter = Math.max(...history.value.map(i => i.id)) + 1
+      }
     } catch (e) {
-      console.error('Failed to parse history from localStorage', e)
+      console.error('讀取歷史資料失敗', e)
     }
   }
 })
