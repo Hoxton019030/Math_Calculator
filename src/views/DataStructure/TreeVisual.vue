@@ -4,29 +4,18 @@
     <div class="row">
       <!-- 左邊輸入和畫布區 -->
       <div class="col-md-8">
+        <div v-if="errorMessage" class="alert alert-danger mt-3">
+          {{ errorMessage }}
+        </div>
         <div class="mb-3 d-flex gap-2 flex-wrap">
-          <input
-            ref="inputField"
-            v-model="inputText"
-            type="text"
-            placeholder="輸入樹結構，例如 A(B(D,E),C(F)) 或 A(_(B,C))"
-            class="form-control"
-            @keydown="handleKeyDown"
-          />
+          <input ref="inputField" v-model="inputText" type="text" placeholder="輸入樹結構，例如 A(B(D,E),C(F)) 或 A(_(B,C))"
+            class="form-control" @keydown="handleKeyDown" />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
         </div>
         <div class="canvas-container" ref="canvasContainer">
-          <canvas
-            ref="canvas"
-            :width="canvasWidth"
-            :height="canvasHeight"
-            class="border"
-            @click="handleCanvasClick"
-          ></canvas>
-          <div
-            class="resize-handle"
-            @mousedown="startResize"
-          ></div>
+          <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border"
+            @click="handleCanvasClick"></canvas>
+          <div class="resize-handle" @mousedown="startResize"></div>
         </div>
         <div class="mt-3 d-flex gap-2 flex-wrap">
           <button class="btn btn-success" @click="copyCanvasToClipboard">
@@ -38,25 +27,16 @@
 
       <!-- 右邊歷史紀錄區 -->
       <div class="col-md-4">
-        <div
-          class="d-flex justify-content-between align-items-center mb-3"
-        >
+        <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">歷史紀錄</h5>
-          <button
-            class="btn btn-sm btn-outline-danger"
-            @click="clearHistory"
-          >
+          <button class="btn btn-sm btn-outline-danger" @click="clearHistory">
             清除全部
           </button>
         </div>
         <ul class="list-group">
-          <li
-            v-for="(item, index) in history"
-            :key="index"
-            class="list-group-item d-flex justify-content-between align-items-center"
-            style="cursor: pointer"
-            @click="loadHistoryItem(item)"
-          >
+          <li v-for="(item, index) in history" :key="index"
+            class="list-group-item d-flex justify-content-between align-items-center" style="cursor: pointer"
+            @click="loadHistoryItem(item)">
             <span>{{ item }}</span>
           </li>
           <li v-if="history.length === 0" class="list-group-item text-muted">
@@ -81,6 +61,8 @@ const history = ref([])
 const selectedNodes = ref(new Set())
 const HISTORY_KEY = 'tree_history'
 const CANVAS_SIZE_KEY = 'canvas_size'
+const errorMessage = ref('')
+
 
 function loadCanvasSize() {
   const savedSize = localStorage.getItem(CANVAS_SIZE_KEY)
@@ -159,10 +141,13 @@ function drawTree() {
     const tree = parseTree(inputText.value)
     const treeWithPos = calculatePositions(tree)
     drawNode(ctx, treeWithPos)
+    errorMessage.value = '' // 如果成功畫出，清除錯誤
   } catch (err) {
     console.error('Invalid tree structure:', err)
+    errorMessage.value = '樹的結構格式錯誤，請檢查輸入內容'
   }
 }
+
 
 function drawNode(ctx, node) {
   const radius = 30
@@ -267,17 +252,41 @@ function startResize(event) {
   document.addEventListener('mouseup', onMouseUp)
 }
 
+function isValidTreeStructure(str) {
+  try {
+    parseTree(str)
+    return true
+  } catch {
+    return false
+  }
+}
+
+
 function saveAndDrawTree() {
-  if (inputText.value && !history.value.includes(inputText.value)) {
+  if (!inputText.value.trim()) {
+    errorMessage.value = '請輸入樹的結構'
+    return
+  }
+
+  if (!isValidTreeStructure(inputText.value)) {
+    errorMessage.value = '樹的結構格式錯誤，請檢查輸入內容'
+    return
+  }
+
+  // 驗證通過，繼續建立樹
+  if (!history.value.includes(inputText.value)) {
     history.value.unshift(inputText.value)
     if (history.value.length > 10) {
       history.value.pop()
     }
     saveHistory()
-    selectedNodes.value.clear()
   }
+
+  selectedNodes.value.clear()
+  errorMessage.value = ''
   drawTree()
 }
+
 
 function loadHistoryItem(item) {
   inputText.value = item
