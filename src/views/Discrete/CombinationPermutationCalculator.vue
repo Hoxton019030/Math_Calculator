@@ -6,14 +6,11 @@
       <div class="col-md-8">
         <draggable v-model="terms" item-key="id" handle=".drag-handle" animation="200">
           <template #item="{ element: term, index }">
-            <div
-              class="card p-3 mb-3 shadow-sm d-flex align-items-center"
-              style="user-select: none;"
-            >
+            <div class="card p-3 mb-3 shadow-sm d-flex align-items-center" style="user-select: none;">
               <div class="d-flex align-items-center gap-3 w-100">
                 <div
                   class="drag-handle d-flex align-items-center justify-content-center"
-                  style="cursor: grab; width: 32px; height: 32px; font-size: 24px; user-select:none;"
+                  style="cursor: grab; width: 32px; height: 32px; font-size: 24px;"
                   title="拖曳改變順序"
                 >
                   ⇆
@@ -29,7 +26,7 @@
                     style="width: 100px;"
                   />
                 </div>
-                <div class="d-flex flex-column">
+                <div v-if="term.type !== 'F'" class="d-flex flex-column">
                   <label class="form-label small mb-1">r</label>
                   <input
                     type="number"
@@ -52,15 +49,10 @@
         </draggable>
 
         <div class="mb-3 d-flex gap-2 flex-wrap justify-content-center">
-          <button class="btn btn-outline-secondary" @click="addTerm('C')">
-            + 新增 C
-          </button>
-          <button class="btn btn-outline-secondary" @click="addTerm('P')">
-            + 新增 P
-          </button>
-          <button class="btn btn-primary" @click="calculate">
-            計算
-          </button>
+          <button class="btn btn-outline-secondary" @click="addTerm('C')">+ 新增 C</button>
+          <button class="btn btn-outline-secondary" @click="addTerm('P')">+ 新增 P</button>
+          <button class="btn btn-outline-secondary" @click="addTerm('F')">+ 新增 F</button>
+          <button class="btn btn-primary" @click="calculate">計算</button>
         </div>
 
         <div v-if="resultText" class="alert alert-success text-center fs-5">
@@ -75,31 +67,24 @@
       <div class="col-md-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">歷史紀錄</h5>
-          <button class="btn btn-sm btn-outline-danger" @click="clearHistory">
-            清除全部
-          </button>
+          <button class="btn btn-sm btn-outline-danger" @click="clearHistory">清除全部</button>
         </div>
 
         <ul class="list-group">
-          <draggable
-            v-model="history"
-            item-key="id"
-            handle=".drag-handle-history"
-            animation="200"
-          >
+          <draggable v-model="history" item-key="id" handle=".drag-handle-history" animation="200">
             <template #item="{ element: item, index }">
               <li class="list-group-item d-flex justify-content-between align-items-center flex-column align-items-start">
                 <div class="d-flex align-items-center w-100">
                   <div
                     class="drag-handle-history me-2"
-                    style="cursor: grab; font-size: 20px; user-select:none;"
+                    style="cursor: grab; font-size: 20px;"
                     title="拖曳改變順序"
                   >
                     ⇆
                   </div>
                   <span
                     @click="loadHistoryItem(item.terms)"
-                    style="cursor: pointer; flex-grow:1;"
+                    style="cursor: pointer; flex-grow: 1;"
                     :title="item.expression"
                   >
                     {{ item.expression }}
@@ -112,11 +97,9 @@
                     ×
                   </button>
                 </div>
-              <small class="text-muted mt-1 w-100 text-end">
-  結果：
-  {{ item.result !== undefined ? item.result.toLocaleString() : '-' }}
-</small>
-
+                <small class="text-muted mt-1 w-100 text-end">
+                  結果：{{ item.result !== undefined ? item.result.toLocaleString() : '-' }}
+                </small>
               </li>
             </template>
           </draggable>
@@ -150,10 +133,16 @@ function permutation(n, r) {
   return res
 }
 
-const terms = ref([
-  { id: 1, type: 'C', n: 5, r:3  },
-])
+function factorial(n) {
+  if (n < 0) return 0
+  let res = 1
+  for (let i = 2; i <= n; i++) {
+    res *= i
+  }
+  return res
+}
 
+const terms = ref([{ id: 1, type: 'C', n: 5, r: 3 }])
 const resultText = ref('')
 const errorText = ref('')
 const history = ref([])
@@ -176,10 +165,18 @@ function calculate() {
     const expressionParts = []
 
     for (const { type, n, r } of terms.value) {
-      if (n < 0 || r < 0) throw new Error('n 和 r 必須為非負整數')
-      if (r > n) throw new Error(`r (${r}) 不可大於 n (${n})`)
-      const value = type === 'C' ? combination(n, r) : permutation(n, r)
-      expressionParts.push(`${type}(${n},${r})`)
+      if (n < 0) throw new Error('n 必須為非負整數')
+      if (type !== 'F' && r < 0) throw new Error('r 必須為非負整數')
+      if ((type === 'C' || type === 'P') && r > n)
+        throw new Error(`r (${r}) 不可大於 n (${n})`)
+
+      let value
+      if (type === 'C') value = combination(n, r)
+      else if (type === 'P') value = permutation(n, r)
+      else if (type === 'F') value = factorial(n)
+      else throw new Error('未知的類型')
+
+      expressionParts.push(type === 'F' ? `${n}!` : `${type}(${n},${r})`)
       result *= value
     }
 
@@ -217,7 +214,6 @@ onMounted(() => {
     try {
       history.value = JSON.parse(saved)
       if (history.value.length) {
-        // 從最大id開始接續
         historyIdCounter = Math.max(...history.value.map(i => i.id)) + 1
       }
     } catch (e) {
