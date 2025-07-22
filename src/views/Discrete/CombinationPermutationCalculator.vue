@@ -45,7 +45,6 @@
                   @click="removeTerm(index)"
                   title="刪除此項"
                 >
-                  
                 </button>
               </div>
             </div>
@@ -152,8 +151,7 @@ function permutation(n, r) {
 }
 
 const terms = ref([
-  { id: 0, type: 'C', n: 100, r: 2 },
-  { id: 1, type: 'C', n: 22, r: 3 },
+  { id: 1, type: 'C', n: 5, r:3  },
 ])
 
 const resultText = ref('')
