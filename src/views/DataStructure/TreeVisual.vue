@@ -95,10 +95,12 @@ function parseTree(str) {
   let index = 0
   function parseNode() {
     let name = ''
-    while (index < str.length && /[A-Za-z0-9+\-÷_]/.test(str[index])) {
+    // 節點名稱允許包含任何非結構控制字元
+    while (index < str.length && !['(', ')', ','].includes(str[index])) {
       name += str[index++]
     }
-    const node = { name, children: [], isPlaceholder: name === '_' }
+    const node = { name: name.trim(), children: [], isPlaceholder: name.trim() === '_' }
+
     if (str[index] === '(') {
       index++
       while (str[index] !== ')') {
@@ -111,6 +113,7 @@ function parseTree(str) {
   }
   return parseNode()
 }
+
 
 function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
   const node = { ...root, x: 0, y: depth * 80, children: [] }
