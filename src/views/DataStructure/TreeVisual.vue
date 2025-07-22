@@ -91,28 +91,48 @@ function saveHistory() {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value))
 }
 
-function parseTree(str) {
+function parseForest(str) {
   let index = 0
+  const forest = []
+
+  function skipSpaces() {
+    while (index < str.length && /\s/.test(str[index])) {
+      index++
+    }
+  }
+
   function parseNode() {
     let name = ''
-    // 節點名稱允許包含任何非結構控制字元
-    while (index < str.length && !['(', ')', ','].includes(str[index])) {
+    skipSpaces()
+    while (index < str.length && !['(', ')', ',', ' '].includes(str[index])) {
       name += str[index++]
     }
     const node = { name: name.trim(), children: [], isPlaceholder: name.trim() === '_' }
 
+    skipSpaces()
     if (str[index] === '(') {
       index++
-      while (str[index] !== ')') {
+      while (str[index] !== ')' && index < str.length) {
+        skipSpaces()
         node.children.push(parseNode())
+        skipSpaces()
         if (str[index] === ',') index++
       }
-      index++
+      index++ // skip ')'
     }
     return node
   }
-  return parseNode()
+
+  while (index < str.length) {
+    skipSpaces()
+    if (index < str.length) {
+      forest.push(parseNode())
+    }
+  }
+
+  return forest
 }
+
 
 
 function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
@@ -141,15 +161,20 @@ function drawTree() {
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
   try {
-    const tree = parseTree(inputText.value)
-    const treeWithPos = calculatePositions(tree)
-    drawNode(ctx, treeWithPos)
-    errorMessage.value = '' // 如果成功畫出，清除錯誤
+    const forest = parseForest(inputText.value)
+    errorMessage.value = ''
+
+    let xOffset = { x: 0 }
+    for (const tree of forest) {
+      const treeWithPos = calculatePositions(tree, 0, xOffset)
+      drawNode(ctx, treeWithPos)
+    }
   } catch (err) {
     console.error('Invalid tree structure:', err)
     errorMessage.value = '樹的結構格式錯誤，請檢查輸入內容'
   }
 }
+
 
 
 function drawNode(ctx, node) {
@@ -197,30 +222,35 @@ function handleCanvasClick(event) {
   const radius = 30
 
   try {
-    const tree = parseTree(inputText.value)
-    const treeWithPos = calculatePositions(tree)
+    const forest = parseForest(inputText.value)
     let nodeClicked = false
-    function checkNode(node) {
-      if (!node.isPlaceholder) {
-        const dx = x - (node.x + 40)
-        const dy = y - (node.y + 40)
-        if (Math.sqrt(dx * dx + dy * dy) <= radius) {
-          const nodeKey = `${node.x},${node.y}`
-          if (selectedNodes.value.has(nodeKey)) {
-            selectedNodes.value.delete(nodeKey)
-          } else {
-            selectedNodes.value.add(nodeKey)
+
+    let xOffset = { x: 0 }
+    for (const tree of forest) {
+      const treeWithPos = calculatePositions(tree, 0, xOffset)
+      function checkNode(node) {
+        if (!node.isPlaceholder) {
+          const dx = x - (node.x + 40)
+          const dy = y - (node.y + 40)
+          if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+            const nodeKey = `${node.x},${node.y}`
+            if (selectedNodes.value.has(nodeKey)) {
+              selectedNodes.value.delete(nodeKey)
+            } else {
+              selectedNodes.value.add(nodeKey)
+            }
+            nodeClicked = true
+            return true
           }
-          nodeClicked = true
-          return true
         }
+        for (let child of node.children) {
+          if (checkNode(child)) return true
+        }
+        return false
       }
-      for (let child of node.children) {
-        if (checkNode(child)) return true
-      }
-      return false
+      checkNode(treeWithPos)
     }
-    checkNode(treeWithPos)
+
     if (!nodeClicked) {
       selectedNodes.value.clear()
     }
@@ -229,6 +259,7 @@ function handleCanvasClick(event) {
     console.error('Invalid tree structure:', err)
   }
 }
+
 
 function startResize(event) {
   event.preventDefault()
@@ -257,12 +288,13 @@ function startResize(event) {
 
 function isValidTreeStructure(str) {
   try {
-    parseTree(str)
+    parseForest(str)
     return true
   } catch {
     return false
   }
 }
+
 
 
 function saveAndDrawTree() {
