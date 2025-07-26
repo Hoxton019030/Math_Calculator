@@ -384,6 +384,12 @@ function handleKeyDown(event) {
   const cursorPosition = input.selectionStart
   const value = input.value
 
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    saveAndDrawTree()
+    return
+  }
+
   if (event.key === 'Backspace') {
     const charToDelete = value[cursorPosition - 1]
     const charAfter = value[cursorPosition]
