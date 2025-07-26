@@ -5,11 +5,13 @@ import CombinationPermutationCalculator  from '../views/Discrete/CombinationPerm
 import TreeVisual from '../views/DataStructure/TreeVisual.vue'
 import LinearAlgebraCalculator from '../views/LinearAlgebra/LinearAlgebraCalculator.vue'
 import GraphVisualizer from '../views/DataStructure/GraphVisualizer.vue'
+import Index from '../views/Index.vue'
 
 const routes = [
   {
     path: '/',
-    redirect: '/discrete/onto'
+    component: Index
+    
   },
   {
     path: '/discrete/onto',
