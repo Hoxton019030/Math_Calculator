@@ -4,6 +4,7 @@ import Placeholder from '../views/LinearAlgebra/Placeholder.vue'
 import CombinationPermutationCalculator  from '../views/Discrete/CombinationPermutationCalculator.vue'
 import TreeVisual from '../views/DataStructure/TreeVisual.vue'
 import LinearAlgebraCalculator from '../views/LinearAlgebra/LinearAlgebraCalculator.vue'
+import GraphVisualizer from '../views/DataStructure/GraphVisualizer.vue'
 
 const routes = [
   {
@@ -35,6 +36,10 @@ const routes = [
    {
     path: '/dataStructure/tree_visual',
     component: TreeVisual
+  },
+  {
+    path: '/dataStructure/graph_visual',
+    component: GraphVisualizer
   },
 ]
 

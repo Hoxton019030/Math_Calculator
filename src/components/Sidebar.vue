@@ -34,6 +34,11 @@
             Tree 的視覺化
           </router-link>
         </li>
+        <li class="mb-2">
+          <router-link class="text-white text-decoration-none" to="/dataStructure/graph_visual">
+            Graph 的視覺化
+          </router-link>
+        </li>
       </ul>
     </div>
   </div>
