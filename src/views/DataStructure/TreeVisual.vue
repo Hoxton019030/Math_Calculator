@@ -2,13 +2,17 @@
   <div class="container py-4">
     <h1 class="mb-4 text-center">Canvas 樹狀結構視覺化</h1>
     <div class="row">
-      <!-- 左邊輸入和畫布區 -->
       <div class="col-md-8">
         <div v-if="errorMessage" class="alert alert-danger mt-3">
           {{ errorMessage }}
         </div>
         <div class="mb-3 d-flex gap-2 flex-wrap">
-          <input ref="inputField" v-model="inputText" type="text" placeholder="輸入樹結構，例如 A(B(D,E),C(F)) 或 A(_(B,C))"
+          <select v-model="treeMode" class="form-select" style="width: auto;">
+            <option value="undirected">無向樹</option>
+            <option value="directed">有向樹</option>
+          </select>
+          <input ref="inputField" v-model="inputText" type="text" 
+            :placeholder="treeMode === 'undirected' ? '輸入無向樹，例如 1(2,3(4))5(6)' : '輸入有向樹，例如 1(->2,3(<-4,->5))'"
             class="form-control" @keydown="handleKeyDown" />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
         </div>
@@ -24,8 +28,6 @@
         </div>
         <div v-if="copySuccess" class="copy-toast">已複製到剪貼簿！</div>
       </div>
-
-      <!-- 右邊歷史紀錄區 -->
       <div class="col-md-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">歷史紀錄</h5>
@@ -51,7 +53,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 
-const inputText = ref('A(_,B(C,D))')
+const inputText = ref('A(->B,C(<-D,->E))')
 const canvas = ref(null)
 const canvasContainer = ref(null)
 const inputField = ref(null)
@@ -59,17 +61,17 @@ const canvasWidth = ref(800)
 const canvasHeight = ref(400)
 const history = ref([])
 const selectedNodes = ref(new Set())
+const treeMode = ref('directed')
 const HISTORY_KEY = 'tree_history'
 const CANVAS_SIZE_KEY = 'canvas_size'
 const errorMessage = ref('')
-
 
 function loadCanvasSize() {
   const savedSize = localStorage.getItem(CANVAS_SIZE_KEY)
   if (savedSize) {
     const { width, height } = JSON.parse(savedSize)
-    canvasWidth.value = Math.max(300, width) // Minimum width
-    canvasHeight.value = Math.max(200, height) // Minimum height
+    canvasWidth.value = Math.max(300, width)
+    canvasHeight.value = Math.max(200, height)
   }
 }
 
@@ -96,32 +98,50 @@ function parseForest(str) {
   const forest = []
 
   function skipSpaces() {
-    while (index < str.length && /\s/.test(str[index])) {
-      index++
-    }
+    while (index < str.length && /\s/.test(str[index])) index++
   }
 
-  function parseNode() {
-    let name = ''
-    skipSpaces()
-    while (index < str.length && !['(', ')', ',', ' '].includes(str[index])) {
-      name += str[index++]
-    }
-    const node = { name: name.trim(), children: [], isPlaceholder: name.trim() === '_' }
+function parseNode() {
+  let direction = null
+  skipSpaces()
 
-    skipSpaces()
-    if (str[index] === '(') {
-      index++
-      while (str[index] !== ')' && index < str.length) {
-        skipSpaces()
-        node.children.push(parseNode())
-        skipSpaces()
-        if (str[index] === ',') index++
-      }
-      index++ // skip ')'
-    }
-    return node
+  // 看看是否有 -> 或 <-
+  if (str.slice(index, index + 2) === '->') {
+    direction = 'parentToChild'
+    index += 2
+  } else if (str.slice(index, index + 2) === '<-') {
+    direction = 'childToParent'
+    index += 2
   }
+
+  // 讀取節點名稱
+  let name = ''
+  skipSpaces()
+  while (index < str.length && !['(', ')', ',', ' '].includes(str[index])) {
+    name += str[index++]
+  }
+  const node = {
+    name: name.trim(),
+    children: [],
+    isPlaceholder: name.trim() === '_',
+    direction
+  }
+
+  skipSpaces()
+  if (str[index] === '(') {
+    index++
+    while (str[index] !== ')' && index < str.length) {
+      skipSpaces()
+      const child = parseNode()
+      node.children.push(child)
+      skipSpaces()
+      if (str[index] === ',') index++
+    }
+    index++ // skip ')'
+  }
+  return node
+}
+
 
   while (index < str.length) {
     skipSpaces()
@@ -132,8 +152,6 @@ function parseForest(str) {
 
   return forest
 }
-
-
 
 function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
   const node = { ...root, x: 0, y: depth * 80, children: [] }
@@ -175,8 +193,6 @@ function drawTree() {
   }
 }
 
-
-
 function drawNode(ctx, node) {
   const radius = 30
   ctx.lineWidth = 2
@@ -197,7 +213,7 @@ function drawNode(ctx, node) {
     const dx = (child.x + 40) - (node.x + 40)
     const dy = (child.y + 40) - (node.y + 40)
     const distance = Math.sqrt(dx * dx + dy * dy)
-    if (distance === 0) return
+    if (distance === 0) continue
 
     if (!child.isPlaceholder) {
       const parentEdgeX = node.x + 40 + (dx * radius) / distance
@@ -205,14 +221,46 @@ function drawNode(ctx, node) {
       const childEdgeX = child.x + 40 - (dx * radius) / distance
       const childEdgeY = child.y + 40 - (dy * radius) / distance
 
+      // 繪製邊
       ctx.beginPath()
       ctx.moveTo(parentEdgeX, parentEdgeY)
       ctx.lineTo(childEdgeX, childEdgeY)
       ctx.stroke()
+
+      // 有向樹模式下根據方向繪製箭頭
+      if (treeMode.value === 'directed' && child.direction) {
+        if (child.direction === 'parentToChild') {
+          // 父指向子
+          drawArrow(ctx, parentEdgeX, parentEdgeY, childEdgeX, childEdgeY)
+        } else if (child.direction === 'childToParent') {
+          // 子指向父
+          drawArrow(ctx, childEdgeX, childEdgeY, parentEdgeX, parentEdgeY)
+        }
+      }
     }
 
     drawNode(ctx, child)
   }
+}
+
+function drawArrow(ctx, fromX, fromY, toX, toY) {
+  const headLength = 10
+  const dx = toX - fromX
+  const dy = toY - fromY
+  const angle = Math.atan2(dy, dx)
+
+  ctx.beginPath()
+  ctx.moveTo(toX, toY)
+  ctx.lineTo(
+    toX - headLength * Math.cos(angle - Math.PI / 6),
+    toY - headLength * Math.sin(angle - Math.PI / 6)
+  )
+  ctx.moveTo(toX, toY)
+  ctx.lineTo(
+    toX - headLength * Math.cos(angle + Math.PI / 6),
+    toY - headLength * Math.sin(angle + Math.PI / 6)
+  )
+  ctx.stroke()
 }
 
 function handleCanvasClick(event) {
@@ -260,7 +308,6 @@ function handleCanvasClick(event) {
   }
 }
 
-
 function startResize(event) {
   event.preventDefault()
   const startX = event.clientX
@@ -271,8 +318,8 @@ function startResize(event) {
   function onMouseMove(moveEvent) {
     const newWidth = startWidth + (moveEvent.clientX - startX)
     const newHeight = startHeight + (moveEvent.clientY - startY)
-    canvasWidth.value = Math.max(300, newWidth) // Minimum width
-    canvasHeight.value = Math.max(200, newHeight) // Minimum height
+    canvasWidth.value = Math.max(300, newWidth)
+    canvasHeight.value = Math.max(200, newHeight)
     saveCanvasSize()
     drawTree()
   }
@@ -295,8 +342,6 @@ function isValidTreeStructure(str) {
   }
 }
 
-
-
 function saveAndDrawTree() {
   if (!inputText.value.trim()) {
     errorMessage.value = '請輸入樹的結構'
@@ -308,7 +353,6 @@ function saveAndDrawTree() {
     return
   }
 
-  // 驗證通過，繼續建立樹
   if (!history.value.includes(inputText.value)) {
     history.value.unshift(inputText.value)
     if (history.value.length > 10) {
@@ -321,7 +365,6 @@ function saveAndDrawTree() {
   errorMessage.value = ''
   drawTree()
 }
-
 
 function loadHistoryItem(item) {
   inputText.value = item
@@ -370,9 +413,7 @@ async function copyCanvasToClipboard() {
     if (!canvasEl) return
 
     const blob = await new Promise((resolve) => canvasEl.toBlob(resolve))
-
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-
     copySuccess.value = true
     setTimeout(() => {
       copySuccess.value = false
@@ -389,9 +430,10 @@ onMounted(() => {
 })
 
 watch(
-  history,
-  (newVal) => {
+  [history, treeMode],
+  () => {
     saveHistory()
+    drawTree()
   },
   { deep: true }
 )
