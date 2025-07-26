@@ -1,6 +1,9 @@
 <template>
   <div class="bg-dark text-white p-3 vh-100">
-    <h4 class="text-white mb-4">數學工具</h4>
+    <router-link to="/" class="text-white text-decoration-none">
+  <h4 class="text-white mb-4">首頁</h4>
+</router-link>
+
 
     <div>
       <h6 class="text-secondary">線性代數</h6>
