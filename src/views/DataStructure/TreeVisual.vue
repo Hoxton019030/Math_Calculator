@@ -53,7 +53,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 
-const inputText = ref('A(->B,C(<-D,->E))')
+const inputText = ref('A(_,->C(<-D,->E))')
 const canvas = ref(null)
 const canvasContainer = ref(null)
 const inputField = ref(null)
