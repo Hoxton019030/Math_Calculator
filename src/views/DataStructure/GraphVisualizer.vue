@@ -222,7 +222,7 @@ function drawGraph() {
   edges.value = parsed.edges
   initPositions(nodes.value)
 
-  if (!history.value.includes(inputText.value + '|' + graphMode.value)) {
+  if (!history.value.includes(inputText.value + '| ' + graphMode.value)) {
     history.value.unshift(inputText.value + '|' + graphMode.value)
     if (history.value.length > 20) history.value.pop()
     saveHistory()
