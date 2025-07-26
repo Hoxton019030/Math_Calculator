@@ -16,7 +16,7 @@
       </div>
 
       <!-- 顏色選擇區 -->
-      <div class="mb-3 d-flex flex-wrap gap-2">
+      <!-- <div class="mb-3 d-flex flex-wrap gap-2">
         <div
           v-for="color in availableColors"
           :key="color"
@@ -27,7 +27,7 @@
         >
           <span v-if="selectedColors.has(color)" class="checkmark">✔</span>
         </div>
-      </div>
+      </div> -->
 
       <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border"></canvas>
 
