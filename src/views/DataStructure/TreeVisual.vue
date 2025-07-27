@@ -16,9 +16,17 @@
             class="form-control" @keydown="handleKeyDown" />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
         </div>
+        <div class="mb-3 d-flex gap-2 flex-wrap">
+          <select v-model="toolMode" class="form-select" style="width: auto;">
+            <option value="select">選擇節點</option>
+            <option value="arrow">畫箭頭</option>
+            <option value="text">添加文字</option>
+          </select>
+          <button @click="clearAnnotations" class="btn btn-warning">清除筆記</button>
+        </div>
         <div class="canvas-container" ref="canvasContainer">
           <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border"
-            @click="handleCanvasClick"></canvas>
+            @mousedown="handleCanvasMouseDown" @mousemove="handleCanvasMouseMove" @mouseup="handleCanvasMouseUp"></canvas>
           <div class="resize-handle" @mousedown="startResize"></div>
         </div>
         <div class="mt-3 d-flex gap-2 flex-wrap">
@@ -62,9 +70,15 @@ const canvasHeight = ref(400)
 const history = ref([])
 const selectedNodes = ref(new Set())
 const treeMode = ref('directed')
+const toolMode = ref('select')
+const annotations = ref([])
 const HISTORY_KEY = 'tree_history'
 const CANVAS_SIZE_KEY = 'canvas_size'
+const ANNOTATIONS_KEY = 'canvas_annotations'
 const errorMessage = ref('')
+const copySuccess = ref(false)
+let isDrawing = false
+let startPoint = null
 
 function loadCanvasSize() {
   const savedSize = localStorage.getItem(CANVAS_SIZE_KEY)
@@ -93,6 +107,17 @@ function saveHistory() {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value))
 }
 
+function loadAnnotations() {
+  const savedAnnotations = localStorage.getItem(ANNOTATIONS_KEY)
+  if (savedAnnotations) {
+    annotations.value = JSON.parse(savedAnnotations)
+  }
+}
+
+function saveAnnotations() {
+  localStorage.setItem(ANNOTATIONS_KEY, JSON.stringify(annotations.value))
+}
+
 function parseForest(str) {
   let index = 0
   const forest = []
@@ -101,47 +126,44 @@ function parseForest(str) {
     while (index < str.length && /\s/.test(str[index])) index++
   }
 
-function parseNode() {
-  let direction = null
-  skipSpaces()
+  function parseNode() {
+    let direction = null
+    skipSpaces()
 
-  // 看看是否有 -> 或 <-
-  if (str.slice(index, index + 2) === '->') {
-    direction = 'parentToChild'
-    index += 2
-  } else if (str.slice(index, index + 2) === '<-') {
-    direction = 'childToParent'
-    index += 2
-  }
-
-  // 讀取節點名稱
-  let name = ''
-  skipSpaces()
-  while (index < str.length && !['(', ')', ',', ' '].includes(str[index])) {
-    name += str[index++]
-  }
-  const node = {
-    name: name.trim(),
-    children: [],
-    isPlaceholder: name.trim() === '_',
-    direction
-  }
-
-  skipSpaces()
-  if (str[index] === '(') {
-    index++
-    while (str[index] !== ')' && index < str.length) {
-      skipSpaces()
-      const child = parseNode()
-      node.children.push(child)
-      skipSpaces()
-      if (str[index] === ',') index++
+    if (str.slice(index, index + 2) === '->') {
+      direction = 'parentToChild'
+      index += 2
+    } else if (str.slice(index, index + 2) === '<-') {
+      direction = 'childToParent'
+      index += 2
     }
-    index++ // skip ')'
-  }
-  return node
-}
 
+    let name = ''
+    skipSpaces()
+    while (index < str.length && !['(', ')', ',', ' '].includes(str[index])) {
+      name += str[index++]
+    }
+    const node = {
+      name: name.trim(),
+      children: [],
+      isPlaceholder: name.trim() === '_',
+      direction
+    }
+
+    skipSpaces()
+    if (str[index] === '(') {
+      index++
+      while (str[index] !== ')' && index < str.length) {
+        skipSpaces()
+        const child = parseNode()
+        node.children.push(child)
+        skipSpaces()
+        if (str[index] === ',') index++
+      }
+      index++
+    }
+    return node
+  }
 
   while (index < str.length) {
     skipSpaces()
@@ -187,6 +209,9 @@ function drawTree() {
       const treeWithPos = calculatePositions(tree, 0, xOffset)
       drawNode(ctx, treeWithPos)
     }
+
+    // Draw annotations
+    drawAnnotations(ctx)
   } catch (err) {
     console.error('Invalid tree structure:', err)
     errorMessage.value = '樹的結構格式錯誤，請檢查輸入內容'
@@ -221,19 +246,15 @@ function drawNode(ctx, node) {
       const childEdgeX = child.x + 40 - (dx * radius) / distance
       const childEdgeY = child.y + 40 - (dy * radius) / distance
 
-      // 繪製邊
       ctx.beginPath()
       ctx.moveTo(parentEdgeX, parentEdgeY)
       ctx.lineTo(childEdgeX, childEdgeY)
       ctx.stroke()
 
-      // 有向樹模式下根據方向繪製箭頭
       if (treeMode.value === 'directed' && child.direction) {
         if (child.direction === 'parentToChild') {
-          // 父指向子
           drawArrow(ctx, parentEdgeX, parentEdgeY, childEdgeX, childEdgeY)
         } else if (child.direction === 'childToParent') {
-          // 子指向父
           drawArrow(ctx, childEdgeX, childEdgeY, parentEdgeX, parentEdgeY)
         }
       }
@@ -263,49 +284,126 @@ function drawArrow(ctx, fromX, fromY, toX, toY) {
   ctx.stroke()
 }
 
-function handleCanvasClick(event) {
+function drawAnnotations(ctx) {
+  ctx.strokeStyle = '#ff0000'
+  ctx.fillStyle = '#ff0000'
+  ctx.lineWidth = 2
+  ctx.font = '16px Arial'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+
+  for (const annotation of annotations.value) {
+    if (annotation.type === 'arrow') {
+      ctx.beginPath()
+      ctx.moveTo(annotation.startX, annotation.startY)
+      ctx.lineTo(annotation.endX, annotation.endY)
+      ctx.stroke()
+      drawArrow(ctx, annotation.startX, annotation.startY, annotation.endX, annotation.endY)
+    } else if (annotation.type === 'text') {
+      ctx.fillText(annotation.text, annotation.x, annotation.y)
+    }
+  }
+  ctx.strokeStyle = '#000'
+  ctx.fillStyle = '#000'
+}
+
+function handleCanvasMouseDown(event) {
   const rect = canvas.value.getBoundingClientRect()
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
-  const radius = 30
 
-  try {
-    const forest = parseForest(inputText.value)
-    let nodeClicked = false
+  if (toolMode.value === 'select') {
+    const radius = 30
+    try {
+      const forest = parseForest(inputText.value)
+      let nodeClicked = false
 
-    let xOffset = { x: 0 }
-    for (const tree of forest) {
-      const treeWithPos = calculatePositions(tree, 0, xOffset)
-      function checkNode(node) {
-        if (!node.isPlaceholder) {
-          const dx = x - (node.x + 40)
-          const dy = y - (node.y + 40)
-          if (Math.sqrt(dx * dx + dy * dy) <= radius) {
-            const nodeKey = `${node.x},${node.y}`
-            if (selectedNodes.value.has(nodeKey)) {
-              selectedNodes.value.delete(nodeKey)
-            } else {
-              selectedNodes.value.add(nodeKey)
+      let xOffset = { x: 0 }
+      for (const tree of forest) {
+        const treeWithPos = calculatePositions(tree, 0, xOffset)
+        function checkNode(node) {
+          if (!node.isPlaceholder) {
+            const dx = x - (node.x + 40)
+            const dy = y - (node.y + 40)
+            if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+              const nodeKey = `${node.x},${node.y}`
+              if (selectedNodes.value.has(nodeKey)) {
+                selectedNodes.value.delete(nodeKey)
+              } else {
+                selectedNodes.value.add(nodeKey)
+              }
+              nodeClicked = true
+              return true
             }
-            nodeClicked = true
-            return true
           }
+          for (let child of node.children) {
+            if (checkNode(child)) return true
+          }
+          return false
         }
-        for (let child of node.children) {
-          if (checkNode(child)) return true
-        }
-        return false
+        checkNode(treeWithPos)
       }
-      checkNode(treeWithPos)
-    }
 
-    if (!nodeClicked) {
-      selectedNodes.value.clear()
+      if (!nodeClicked) {
+        selectedNodes.value.clear()
+      }
+      drawTree()
+    } catch (err) {
+      console.error('Invalid tree structure:', err)
     }
-    drawTree()
-  } catch (err) {
-    console.error('Invalid tree structure:', err)
+  } else if (toolMode.value === 'arrow') {
+    isDrawing = true
+    startPoint = { x, y }
+  } else if (toolMode.value === 'text') {
+    const text = prompt('請輸入文字筆記：')
+    if (text) {
+      annotations.value.push({ type: 'text', text, x, y })
+      saveAnnotations()
+      drawTree()
+    }
   }
+}
+
+function handleCanvasMouseMove(event) {
+  if (isDrawing && toolMode.value === 'arrow') {
+    const rect = canvas.value.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    drawTree()
+    const ctx = canvas.value.getContext('2d')
+    ctx.strokeStyle = '#ff0000'
+    ctx.beginPath()
+    ctx.moveTo(startPoint.x, startPoint.y)
+    ctx.lineTo(x, y)
+    ctx.stroke()
+    drawArrow(ctx, startPoint.x, startPoint.y, x, y)
+    ctx.strokeStyle = '#000'
+  }
+}
+
+function handleCanvasMouseUp(event) {
+  if (isDrawing && toolMode.value === 'arrow') {
+    const rect = canvas.value.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    annotations.value.push({
+      type: 'arrow',
+      startX: startPoint.x,
+      startY: startPoint.y,
+      endX: x,
+      endY: y
+    })
+    saveAnnotations()
+    isDrawing = false
+    startPoint = null
+    drawTree()
+  }
+}
+
+function clearAnnotations() {
+  annotations.value = []
+  saveAnnotations()
+  drawTree()
 }
 
 function startResize(event) {
@@ -412,7 +510,6 @@ function handleKeyDown(event) {
   }
 }
 
-const copySuccess = ref(false)
 async function copyCanvasToClipboard() {
   try {
     const canvasEl = canvas.value
@@ -432,11 +529,12 @@ async function copyCanvasToClipboard() {
 onMounted(() => {
   loadCanvasSize()
   loadHistory()
+  loadAnnotations()
   nextTick(() => drawTree())
 })
 
 watch(
-  [history, treeMode],
+  [history, treeMode, toolMode],
   () => {
     saveHistory()
     drawTree()
