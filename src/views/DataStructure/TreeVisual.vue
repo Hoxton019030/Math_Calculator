@@ -12,7 +12,7 @@
             <option value="directed">有向樹</option>
           </select>
           <input ref="inputField" v-model="inputText" type="text" 
-            :placeholder="treeMode === 'undirected' ? '輸入無向樹，例如 1(2,3(4))5(6)' : '輸入有向樹，例如 1(->2,3(<-4,->5))'"
+            :placeholder="treeMode === 'undirected' ? '輸入無向樹，例如 1(2,3(4))5(6) 或 [1](2,3(4))' : '輸入有向樹，例如 1(->2,3(<-4,->5)) 或 [1](->2,3(<-4,->5))'"
             class="form-control" @keydown="handleKeyDown" />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
         </div>
@@ -67,7 +67,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 
-const inputText = ref('A(_,->C(<-D,->E))')
+const inputText = ref('A(_,->[C](<-D,->E))')
 const canvas = ref(null)
 const canvasContainer = ref(null)
 const inputField = ref(null)
@@ -79,8 +79,8 @@ const treeMode = ref('directed')
 const toolMode = ref('select')
 const annotations = ref([])
 const selectedAnnotation = ref(null)
-const historyWidth = ref(250) // Initial width of history panel
-const historyOffset = ref(20) // Initial right offset
+const historyWidth = ref(250)
+const historyOffset = ref(20)
 const HISTORY_KEY = 'tree_history'
 const CANVAS_SIZE_KEY = 'canvas_size'
 const ANNOTATIONS_KEY = 'canvas_annotations'
@@ -137,7 +137,7 @@ function saveAnnotations() {
 function loadHistoryWidth() {
   const savedWidth = localStorage.getItem(HISTORY_WIDTH_KEY)
   if (savedWidth) {
-    historyWidth.value = Math.max(150, Math.min(400, parseInt(savedWidth))) // Constrain between 150 and 400px
+    historyWidth.value = Math.max(150, Math.min(400, parseInt(savedWidth)))
   }
 }
 
@@ -148,7 +148,7 @@ function saveHistoryWidth() {
 function loadHistoryOffset() {
   const savedOffset = localStorage.getItem(HISTORY_OFFSET_KEY)
   if (savedOffset) {
-    historyOffset.value = Math.max(0, Math.min(100, parseInt(savedOffset))) // Constrain between 0 and 100px
+    historyOffset.value = Math.max(0, Math.min(100, parseInt(savedOffset)))
   }
 }
 
@@ -177,15 +177,28 @@ function parseForest(str) {
     }
 
     let name = ''
+    let isSquare = false
     skipSpaces()
-    while (index < str.length && !['(', ')', ',', ' '].includes(str[index])) {
-      name += str[index++]
+    
+    if (str[index] === '[') {
+      isSquare = true
+      index++
+      while (index < str.length && str[index] !== ']') {
+        name += str[index++]
+      }
+      if (str[index] === ']') index++
+    } else {
+      while (index < str.length && !['(', ')', ',', ' ', '[', ']'].includes(str[index])) {
+        name += str[index++]
+      }
     }
+
     const node = {
       name: name.trim(),
       children: [],
       isPlaceholder: name.trim() === '_',
-      direction
+      direction,
+      isSquare
     }
 
     skipSpaces()
@@ -245,10 +258,12 @@ function drawTree() {
     let xOffset = { x: 0 }
     for (const tree of forest) {
       const treeWithPos = calculatePositions(tree, 0, xOffset)
+      // First pass: Draw lines
+      drawLines(ctx, treeWithPos)
+      // Second pass: Draw nodes
       drawNode(ctx, treeWithPos)
     }
 
-    // Draw annotations
     drawAnnotations(ctx)
   } catch (err) {
     console.error('Invalid tree structure:', err)
@@ -256,12 +271,50 @@ function drawTree() {
   }
 }
 
+function drawLines(ctx, node) {
+  const size = 30
+  if (!node.isPlaceholder) {
+    for (let child of node.children) {
+      const dx = (child.x + 40) - (node.x + 40)
+      const dy = (child.y + 40) - (node.y + 40)
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      if (distance === 0) continue
+
+      if (!child.isPlaceholder) {
+        const parentEdgeX = node.x + 40 + (dx * size) / distance
+        const parentEdgeY = node.y + 40 + (dy * size) / distance
+        const childEdgeX = child.x + 40 - (dx * size) / distance
+        const childEdgeY = child.y + 40 - (dy * size) / distance
+
+        ctx.beginPath()
+        ctx.moveTo(parentEdgeX, parentEdgeY)
+        ctx.lineTo(childEdgeX, childEdgeY)
+        ctx.stroke()
+
+        if (treeMode.value === 'directed' && child.direction) {
+          if (child.direction === 'parentToChild') {
+            drawArrow(ctx, parentEdgeX, parentEdgeY, childEdgeX, childEdgeY)
+          } else if (child.direction === 'childToParent') {
+            drawArrow(ctx, childEdgeX, childEdgeY, parentEdgeX, parentEdgeY)
+          }
+        }
+      }
+
+      drawLines(ctx, child)
+    }
+  }
+}
+
 function drawNode(ctx, node) {
-  const radius = 30
+  const size = 30
   ctx.lineWidth = 2
   if (!node.isPlaceholder) {
     ctx.beginPath()
-    ctx.arc(node.x + 40, node.y + 40, radius, 0, 2 * Math.PI)
+    if (node.isSquare) {
+      ctx.rect(node.x + 10, node.y + 10, size * 2, size * 2)
+    } else {
+      ctx.arc(node.x + 40, node.y + 40, size, 0, 2 * Math.PI)
+    }
     ctx.fillStyle = selectedNodes.value.has(`${node.x},${node.y}`) ? '#ff6666' : '#fff'
     ctx.fill()
     ctx.stroke()
@@ -273,31 +326,6 @@ function drawNode(ctx, node) {
   }
 
   for (let child of node.children) {
-    const dx = (child.x + 40) - (node.x + 40)
-    const dy = (child.y + 40) - (node.y + 40)
-    const distance = Math.sqrt(dx * dx + dy * dy)
-    if (distance === 0) continue
-
-    if (!child.isPlaceholder) {
-      const parentEdgeX = node.x + 40 + (dx * radius) / distance
-      const parentEdgeY = node.y + 40 + (dy * radius) / distance
-      const childEdgeX = child.x + 40 - (dx * radius) / distance
-      const childEdgeY = child.y + 40 - (dy * radius) / distance
-
-      ctx.beginPath()
-      ctx.moveTo(parentEdgeX, parentEdgeY)
-      ctx.lineTo(childEdgeX, childEdgeY)
-      ctx.stroke()
-
-      if (treeMode.value === 'directed' && child.direction) {
-        if (child.direction === 'parentToChild') {
-          drawArrow(ctx, parentEdgeX, parentEdgeY, childEdgeX, childEdgeY)
-        } else if (child.direction === 'childToParent') {
-          drawArrow(ctx, childEdgeX, childEdgeY, parentEdgeX, parentEdgeY)
-        }
-      }
-    }
-
     drawNode(ctx, child)
   }
 }
@@ -351,11 +379,10 @@ function isPointNearLine(x, y, x1, y1, x2, y2, threshold = 5) {
   const B = y - y1
   const C = x2 - x1
   const D = y2 - y1
-  const dot = A * C + B * D
-  const len_sq = C * C + D * D
   let param = -1
+  const len_sq = C * C + D * D
   if (len_sq !== 0) {
-    param = dot / len_sq
+    param = (A * C + B * D) / len_sq
   }
   let xx, yy
   if (param < 0) {
@@ -387,7 +414,7 @@ function handleCanvasMouseDown(event) {
   const y = event.clientY - rect.top
 
   if (toolMode.value === 'select') {
-    const radius = 30
+    const size = 30
     try {
       const forest = parseForest(inputText.value)
       let nodeClicked = false
@@ -397,17 +424,30 @@ function handleCanvasMouseDown(event) {
         const treeWithPos = calculatePositions(tree, 0, xOffset)
         function checkNode(node) {
           if (!node.isPlaceholder) {
-            const dx = x - (node.x + 40)
-            const dy = y - (node.y + 40)
-            if (Math.sqrt(dx * dx + dy * dy) <= radius) {
-              const nodeKey = `${node.x},${node.y}`
-              if (selectedNodes.value.has(nodeKey)) {
-                selectedNodes.value.delete(nodeKey)
-              } else {
-                selectedNodes.value.add(nodeKey)
+            if (node.isSquare) {
+              if (x >= node.x + 10 && x <= node.x + 10 + size * 2 && y >= node.y + 10 && y <= node.y + 10 + size * 2) {
+                const nodeKey = `${node.x},${node.y}`
+                if (selectedNodes.value.has(nodeKey)) {
+                  selectedNodes.value.delete(nodeKey)
+                } else {
+                  selectedNodes.value.add(nodeKey)
+                }
+                nodeClicked = true
+                return true
               }
-              nodeClicked = true
-              return true
+            } else {
+              const dx = x - (node.x + 40)
+              const dy = y - (node.y + 40)
+              if (Math.sqrt(dx * dx + dy * dy) <= size) {
+                const nodeKey = `${node.x},${node.y}`
+                if (selectedNodes.value.has(nodeKey)) {
+                  selectedNodes.value.delete(nodeKey)
+                } else {
+                  selectedNodes.value.add(nodeKey)
+                }
+                nodeClicked = true
+                return true
+              }
             }
           }
           for (let child of node.children) {
@@ -653,10 +693,24 @@ function handleKeyDown(event) {
       nextTick(() => {
         input.setSelectionRange(cursorPosition - 1, cursorPosition - 1)
       })
+    } else if (charToDelete === '[' && charAfter === ']') {
+      event.preventDefault()
+      const newValue = value.slice(0, cursorPosition - 1) + value.slice(cursorPosition + 1)
+      inputText.value = newValue
+      nextTick(() => {
+        input.setSelectionRange(cursorPosition - 1, cursorPosition - 1)
+      })
     }
   } else if (event.key === '(') {
     event.preventDefault()
     const newValue = value.slice(0, cursorPosition) + '()' + value.slice(cursorPosition)
+    inputText.value = newValue
+    nextTick(() => {
+      input.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
+    })
+  } else if (event.key === '[') {
+    event.preventDefault()
+    const newValue = value.slice(0, cursorPosition) + '[]' + value.slice(cursorPosition)
     inputText.value = newValue
     nextTick(() => {
       input.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
