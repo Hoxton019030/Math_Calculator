@@ -64,6 +64,7 @@
       </div>
 
       <!-- 右邊歷史紀錄區 -->
+       
       <div class="col-md-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">歷史紀錄</h5>
@@ -113,6 +114,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import draggable from 'vuedraggable'
+import History_Panel_CombinationPermutation from '../../components/History_Panel_CombinationPermutation.vue'
 
 function combination(n, r) {
   if (r > n) return 0
