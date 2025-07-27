@@ -1,76 +1,83 @@
 <template>
-  <div class="container py-4">
-    <h1 class="mb-4 text-center">排列組合計算器</h1>
-    <div class="row">
-      <!-- 左邊輸入區（可拖曳排序） -->
-      <div class="col-md-8">
-        <draggable v-model="terms" item-key="id" handle=".drag-handle" animation="200">
-          <template #item="{ element: term, index }">
-            <div class="card p-3 mb-3 shadow-sm d-flex align-items-center" style="user-select: none;">
-              <div class="d-flex align-items-center gap-3 w-100">
-                <div
-                  class="drag-handle d-flex align-items-center justify-content-center"
-                  style="cursor: grab; width: 32px; height: 32px; font-size: 24px;"
-                  title="拖曳改變順序"
-                >
-                  ⇆
+  <div class="container-fluid">
+    <!-- Main content with calculator -->
+    <div class="main-content py-4">
+      <h1 class="mb-4 text-center">排列組合計算器</h1>
+      <div class="row justify-content-center">
+        <div class="col-md-8">
+          <draggable v-model="terms" item-key="id" handle=".drag-handle" animation="200">
+            <template #item="{ element: term, index }">
+              <div class="card p-3 mb-3 shadow-sm d-flex align-items-center" style="user-select: none;">
+                <div class="d-flex align-items-center gap-3 w-100">
+                  <div
+                    class="drag-handle d-flex align-items-center justify-content-center"
+                    style="cursor: grab; width: 32px; height: 32px; font-size: 24px;"
+                    title="拖曳改變順序"
+                  >
+                    ⇆
+                  </div>
+                  <div class="fw-bold fs-3" style="width: 30px;">{{ term.type }}</div>
+                  <div class="d-flex flex-column">
+                    <label class="form-label small mb-1">n</label>
+                    <input
+                      type="number"
+                      v-model.number="term.n"
+                      class="form-control"
+                      min="0"
+                      style="width: 100px;"
+                    />
+                  </div>
+                  <div v-if="term.type !== 'F'" class="d-flex flex-column">
+                    <label class="form-label small mb-1">r</label>
+                    <input
+                      type="number"
+                      v-model.number="term.r"
+                      class="form-control"
+                      min="0"
+                      style="width: 100px;"
+                    />
+                  </div>
+                  <button
+                    class="btn btn-outline-danger rounded-circle p-2 ms-auto"
+                    style="width: 32px; height: 32px;"
+                    @click="removeTerm(index)"
+                    title="刪除此項"
+                  >
+                  </button>
                 </div>
-                <div class="fw-bold fs-3" style="width: 30px;">{{ term.type }}</div>
-                <div class="d-flex flex-column">
-                  <label class="form-label small mb-1">n</label>
-                  <input
-                    type="number"
-                    v-model.number="term.n"
-                    class="form-control"
-                    min="0"
-                    style="width: 100px;"
-                  />
-                </div>
-                <div v-if="term.type !== 'F'" class="d-flex flex-column">
-                  <label class="form-label small mb-1">r</label>
-                  <input
-                    type="number"
-                    v-model.number="term.r"
-                    class="form-control"
-                    min="0"
-                    style="width: 100px;"
-                  />
-                </div>
-                <button
-                  class="btn btn-outline-danger rounded-circle p-2 ms-auto"
-                  style="width: 32px; height: 32px;"
-                  @click="removeTerm(index)"
-                  title="刪除此項"
-                >
-                </button>
               </div>
-            </div>
-          </template>
-        </draggable>
+            </template>
+          </draggable>
 
-        <div class="mb-3 d-flex gap-2 flex-wrap justify-content-center">
-          <button class="btn btn-outline-secondary" @click="addTerm('C')">+ 新增 C</button>
-          <button class="btn btn-outline-secondary" @click="addTerm('P')">+ 新增 P</button>
-          <button class="btn btn-outline-secondary" @click="addTerm('F')">+ 新增 F</button>
-          <button class="btn btn-primary" @click="calculate">計算</button>
-        </div>
+          <div class="mb-3 d-flex gap-2 flex-wrap justify-content-center">
+            <button class="btn btn-outline-secondary" @click="addTerm('C')">+ 新增 C</button>
+            <button class="btn btn-outline-secondary" @click="addTerm('P')">+ 新增 P</button>
+            <button class="btn btn-outline-secondary" @click="addTerm('F')">+ 新增 F</button>
+            <button class="btn btn-primary" @click="calculate">計算</button>
+          </div>
 
-        <div v-if="resultText" class="alert alert-success text-center fs-5">
-          {{ resultText }}
-        </div>
-        <div v-if="errorText" class="alert alert-danger text-center fs-6">
-          {{ errorText }}
+          <div v-if="resultText" class="alert alert-success text-center fs-5">
+            {{ resultText }}
+          </div>
+          <div v-if="errorText" class="alert alert-danger text-center fs-6">
+            {{ errorText }}
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- 右邊歷史紀錄區 -->
-       
-      <div class="col-md-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">歷史紀錄</h5>
+    <!-- Right sidebar for history -->
+    <div class="history-sidebar">
+      <div class="sidebar-header d-flex justify-content-between align-items-center p-3">
+        <h5 class="mb-0">歷史紀錄</h5>
+        <div>
+          <!-- <button class="btn btn-sm btn-outline-secondary me-2" @click="toggleSidebar"> -->
+            <!-- {{ isSidebarOpen ? '收合' : '展開' }} -->
+          <!-- </button> -->
           <button class="btn btn-sm btn-outline-danger" @click="clearHistory">清除全部</button>
         </div>
-
+      </div>
+      <div v-if="isSidebarOpen" class="sidebar-content p-3">
         <ul class="list-group">
           <draggable v-model="history" item-key="id" handle=".drag-handle-history" animation="200">
             <template #item="{ element: item, index }">
@@ -114,7 +121,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import draggable from 'vuedraggable'
-import History_Panel_CombinationPermutation from '../../components/History_Panel_CombinationPermutation.vue'
 
 function combination(n, r) {
   if (r > n) return 0
@@ -148,6 +154,7 @@ const terms = ref([{ id: 1, type: 'C', n: 5, r: 3 }])
 const resultText = ref('')
 const errorText = ref('')
 const history = ref([])
+const isSidebarOpen = ref(true)
 
 let idCounter = 2
 let historyIdCounter = 0
@@ -210,6 +217,10 @@ function clearHistory() {
   localStorage.removeItem(HISTORY_KEY)
 }
 
+function toggleSidebar() {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
+
 onMounted(() => {
   const saved = localStorage.getItem(HISTORY_KEY)
   if (saved) {
@@ -234,8 +245,60 @@ watch(
 </script>
 
 <style scoped>
+.container-fluid {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding-right: 300px; /* Reserve space for sidebar when open */
+}
+
+.history-sidebar {
+  width: 300px;
+  background-color: #f8f9fa;
+  border-left: 1px solid #dee2e6;
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  transition: transform 0.3s ease;
+  transform: translateX(0);
+  z-index: 1000;
+}
+
+.history-sidebar.closed {
+  transform: translateX(100%);
+}
+
+.history-sidebar .sidebar-header {
+  background-color: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.history-sidebar .sidebar-content {
+  overflow-y: auto;
+  height: calc(100% - 60px); /* Adjust based on header height */
+}
+
+.history-sidebar.closed .sidebar-content {
+  display: none;
+}
+
 .drag-handle,
 .drag-handle-history {
   user-select: none;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding-right: 0;
+  }
+
+  .history-sidebar {
+    width: 100%;
+    z-index: 2000;
+  }
 }
 </style>
