@@ -296,11 +296,12 @@ function drawLines(ctx, node) {
 
 function drawNode(ctx, node) {
   const size = 30
+  const rectSize = 23 // Adjusted rectangle size (half of the original 60x60)
   ctx.lineWidth = 2
   if (!node.isPlaceholder) {
     ctx.beginPath()
     if (node.isSquare) {
-      ctx.rect(node.x + 10, node.y + 10, size * 2, size * 2)
+      ctx.rect(node.x + 18, node.y + 18, rectSize * 2, rectSize * 2) // Adjusted to 40x40
     } else {
       ctx.arc(node.x + 40, node.y + 40, size, 0, 2 * Math.PI)
     }
@@ -403,7 +404,7 @@ function handleCanvasMouseDown(event) {
   const y = event.clientY - rect.top
 
   if (toolMode.value === 'select') {
-    const size = 30
+    const size = 20 // Adjusted to match the new rectSize for square nodes
     try {
       const forest = parseForest(inputText.value)
       let nodeClicked = false
@@ -414,7 +415,7 @@ function handleCanvasMouseDown(event) {
         function checkNode(node) {
           if (!node.isPlaceholder) {
             if (node.isSquare) {
-              if (x >= node.x + 10 && x <= node.x + 10 + size * 2 && y >= node.y + 10 && y <= node.y + 10 + size * 2) {
+              if (x >= node.x + 20 && x <= node.x + 20 + size * 2 && y >= node.y + 20 && y <= node.y + 20 + size * 2) {
                 const nodeKey = `${node.x},${node.y}`
                 if (selectedNodes.value.has(nodeKey)) {
                   selectedNodes.value.delete(nodeKey)
@@ -425,8 +426,8 @@ function handleCanvasMouseDown(event) {
                 return true
               }
             } else {
-              const dx = x - (node.x + 40)
-              const dy = y - (node.y + 40)
+              const dx = x - (node.x + 30)
+              const dy = y - (node.y + 30)
               if (Math.sqrt(dx * dx + dy * dy) <= size) {
                 const nodeKey = `${node.x},${node.y}`
                 if (selectedNodes.value.has(nodeKey)) {
