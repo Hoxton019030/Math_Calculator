@@ -21,8 +21,11 @@
             <option value="select">選擇節點</option>
             <option value="arrow">畫箭頭</option>
             <option value="text">添加文字</option>
+            <option value="edit">編輯筆記</option>
           </select>
           <button @click="clearAnnotations" class="btn btn-warning">清除筆記</button>
+          <button v-if="selectedAnnotation !== null" @click="editSelectedAnnotation" class="btn btn-info">編輯選中筆記</button>
+          <button v-if="selectedAnnotation !== null" @click="deleteSelectedAnnotation" class="btn btn-danger">刪除選中筆記</button>
         </div>
         <div class="canvas-container" ref="canvasContainer">
           <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border"
@@ -72,6 +75,7 @@ const selectedNodes = ref(new Set())
 const treeMode = ref('directed')
 const toolMode = ref('select')
 const annotations = ref([])
+const selectedAnnotation = ref(null)
 const HISTORY_KEY = 'tree_history'
 const CANVAS_SIZE_KEY = 'canvas_size'
 const ANNOTATIONS_KEY = 'canvas_annotations'
@@ -79,6 +83,8 @@ const errorMessage = ref('')
 const copySuccess = ref(false)
 let isDrawing = false
 let startPoint = null
+let isDraggingAnnotation = false
+let dragPoint = null
 
 function loadCanvasSize() {
   const savedSize = localStorage.getItem(CANVAS_SIZE_KEY)
@@ -285,14 +291,15 @@ function drawArrow(ctx, fromX, fromY, toX, toY) {
 }
 
 function drawAnnotations(ctx) {
-  ctx.strokeStyle = '#ff0000'
-  ctx.fillStyle = '#ff0000'
   ctx.lineWidth = 2
   ctx.font = '16px Arial'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
 
-  for (const annotation of annotations.value) {
+  annotations.value.forEach((annotation, index) => {
+    ctx.strokeStyle = selectedAnnotation.value === index ? '#00ff00' : '#ff0000'
+    ctx.fillStyle = selectedAnnotation.value === index ? '#00ff00' : '#ff0000'
+    
     if (annotation.type === 'arrow') {
       ctx.beginPath()
       ctx.moveTo(annotation.startX, annotation.startY)
@@ -302,9 +309,44 @@ function drawAnnotations(ctx) {
     } else if (annotation.type === 'text') {
       ctx.fillText(annotation.text, annotation.x, annotation.y)
     }
-  }
+  })
   ctx.strokeStyle = '#000'
   ctx.fillStyle = '#000'
+}
+
+function isPointNearLine(x, y, x1, y1, x2, y2, threshold = 5) {
+  const A = x - x1
+  const B = y - y1
+  const C = x2 - x1
+  const D = y2 - y1
+  const dot = A * C + B * D
+  const len_sq = C * C + D * D
+  let param = -1
+  if (len_sq !== 0) {
+    param = dot / len_sq
+  }
+  let xx, yy
+  if (param < 0) {
+    xx = x1
+    yy = y1
+  } else if (param > 1) {
+    xx = x2
+    yy = y2
+  } else {
+    xx = x1 + param * C
+    yy = y1 + param * D
+  }
+  const dx = x - xx
+  const dy = y - yy
+  return Math.sqrt(dx * dx + dy * dy) <= threshold
+}
+
+function isPointNearText(x, y, textX, textY, text, ctx) {
+  ctx.font = '16px Arial'
+  const metrics = ctx.measureText(text)
+  const width = metrics.width
+  const height = 16
+  return x >= textX && x <= textX + width && y >= textY && y <= textY + height
 }
 
 function handleCanvasMouseDown(event) {
@@ -361,14 +403,34 @@ function handleCanvasMouseDown(event) {
       saveAnnotations()
       drawTree()
     }
+  } else if (toolMode.value === 'edit') {
+    const ctx = canvas.value.getContext('2d')
+    selectedAnnotation.value = null
+    annotations.value.forEach((annotation, index) => {
+      if (annotation.type === 'arrow') {
+        if (isPointNearLine(x, y, annotation.startX, annotation.startY, annotation.endX, annotation.endY)) {
+          selectedAnnotation.value = index
+          isDraggingAnnotation = true
+          dragPoint = { x, y }
+        }
+      } else if (annotation.type === 'text') {
+        if (isPointNearText(x, y, annotation.x, annotation.y, annotation.text, ctx)) {
+          selectedAnnotation.value = index
+          isDraggingAnnotation = true
+          dragPoint = { x, y }
+        }
+      }
+    })
+    drawTree()
   }
 }
 
 function handleCanvasMouseMove(event) {
+  const rect = canvas.value.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+
   if (isDrawing && toolMode.value === 'arrow') {
-    const rect = canvas.value.getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
     drawTree()
     const ctx = canvas.value.getContext('2d')
     ctx.strokeStyle = '#ff0000'
@@ -378,6 +440,22 @@ function handleCanvasMouseMove(event) {
     ctx.stroke()
     drawArrow(ctx, startPoint.x, startPoint.y, x, y)
     ctx.strokeStyle = '#000'
+  } else if (isDraggingAnnotation && toolMode.value === 'edit' && selectedAnnotation.value !== null) {
+    const annotation = annotations.value[selectedAnnotation.value]
+    if (annotation.type === 'arrow') {
+      const dx = x - dragPoint.x
+      const dy = y - dragPoint.y
+      annotation.startX += dx
+      annotation.startY += dy
+      annotation.endX += dx
+      annotation.endY += dy
+    } else if (annotation.type === 'text') {
+      annotation.x += x - dragPoint.x
+      annotation.y += y - dragPoint.y
+    }
+    dragPoint = { x, y }
+    saveAnnotations()
+    drawTree()
   }
 }
 
@@ -397,11 +475,39 @@ function handleCanvasMouseUp(event) {
     isDrawing = false
     startPoint = null
     drawTree()
+  } else if (isDraggingAnnotation && toolMode.value === 'edit') {
+    isDraggingAnnotation = false
+    dragPoint = null
+    saveAnnotations()
+    drawTree()
+  }
+}
+
+function editSelectedAnnotation() {
+  if (selectedAnnotation.value === null) return
+  const annotation = annotations.value[selectedAnnotation.value]
+  if (annotation.type === 'text') {
+    const newText = prompt('請輸入新的文字筆記：', annotation.text)
+    if (newText) {
+      annotation.text = newText
+      saveAnnotations()
+      drawTree()
+    }
+  }
+}
+
+function deleteSelectedAnnotation() {
+  if (selectedAnnotation.value !== null) {
+    annotations.value.splice(selectedAnnotation.value, 1)
+    selectedAnnotation.value = null
+    saveAnnotations()
+    drawTree()
   }
 }
 
 function clearAnnotations() {
   annotations.value = []
+  selectedAnnotation.value = null
   saveAnnotations()
   drawTree()
 }
