@@ -11,7 +11,10 @@ const routes = [
   {
     path: '/',
     component: Index
-    
+  },
+    {
+    path: '/index',
+    component: Index
   },
   {
     path: '/discrete/onto',
