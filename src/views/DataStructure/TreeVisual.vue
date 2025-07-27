@@ -40,22 +40,25 @@
         <div v-if="copySuccess" class="copy-toast">已複製到剪貼簿！</div>
       </div>
       <div class="col-md-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">歷史紀錄</h5>
-          <button class="btn btn-sm btn-outline-danger" @click="clearHistory">
-            清除全部
-          </button>
+        <div class="history-panel" :style="{ width: historyWidth + 'px', right: historyOffset + 'px' }">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">歷史紀錄</h5>
+            <button class="btn btn-sm btn-outline-danger" @click="clearHistory">
+              清除全部
+            </button>
+          </div>
+          <ul class="list-group">
+            <li v-for="(item, index) in history" :key="index"
+              class="list-group-item d-flex justify-content-between align-items-center" style="cursor: pointer"
+              @click="loadHistoryItem(item)">
+              <span>{{ item }}</span>
+            </li>
+            <li v-if="history.length === 0" class="list-group-item text-muted">
+              尚無紀錄
+            </li>
+          </ul>
+          <div class="resize-handle-left" @mousedown="startResizeHistory"></div>
         </div>
-        <ul class="list-group">
-          <li v-for="(item, index) in history" :key="index"
-            class="list-group-item d-flex justify-content-between align-items-center" style="cursor: pointer"
-            @click="loadHistoryItem(item)">
-            <span>{{ item }}</span>
-          </li>
-          <li v-if="history.length === 0" class="list-group-item text-muted">
-            尚無紀錄
-          </li>
-        </ul>
       </div>
     </div>
   </div>
@@ -76,15 +79,22 @@ const treeMode = ref('directed')
 const toolMode = ref('select')
 const annotations = ref([])
 const selectedAnnotation = ref(null)
+const historyWidth = ref(250) // Initial width of history panel
+const historyOffset = ref(20) // Initial right offset
 const HISTORY_KEY = 'tree_history'
 const CANVAS_SIZE_KEY = 'canvas_size'
 const ANNOTATIONS_KEY = 'canvas_annotations'
+const HISTORY_WIDTH_KEY = 'history_width'
+const HISTORY_OFFSET_KEY = 'history_offset'
 const errorMessage = ref('')
 const copySuccess = ref(false)
 let isDrawing = false
 let startPoint = null
 let isDraggingAnnotation = false
 let dragPoint = null
+let isResizingHistory = false
+let resizeHistoryStartX = null
+let resizeHistoryStartWidth = null
 
 function loadCanvasSize() {
   const savedSize = localStorage.getItem(CANVAS_SIZE_KEY)
@@ -122,6 +132,28 @@ function loadAnnotations() {
 
 function saveAnnotations() {
   localStorage.setItem(ANNOTATIONS_KEY, JSON.stringify(annotations.value))
+}
+
+function loadHistoryWidth() {
+  const savedWidth = localStorage.getItem(HISTORY_WIDTH_KEY)
+  if (savedWidth) {
+    historyWidth.value = Math.max(150, Math.min(400, parseInt(savedWidth))) // Constrain between 150 and 400px
+  }
+}
+
+function saveHistoryWidth() {
+  localStorage.setItem(HISTORY_WIDTH_KEY, historyWidth.value.toString())
+}
+
+function loadHistoryOffset() {
+  const savedOffset = localStorage.getItem(HISTORY_OFFSET_KEY)
+  if (savedOffset) {
+    historyOffset.value = Math.max(0, Math.min(100, parseInt(savedOffset))) // Constrain between 0 and 100px
+  }
+}
+
+function saveHistoryOffset() {
+  localStorage.setItem(HISTORY_OFFSET_KEY, historyOffset.value.toString())
 }
 
 function parseForest(str) {
@@ -456,6 +488,11 @@ function handleCanvasMouseMove(event) {
     dragPoint = { x, y }
     saveAnnotations()
     drawTree()
+  } else if (isResizingHistory) {
+    const dx = event.clientX - resizeHistoryStartX
+    historyWidth.value = Math.max(150, Math.min(400, resizeHistoryStartWidth - dx))
+    saveHistoryWidth()
+    drawTree()
   }
 }
 
@@ -480,6 +517,10 @@ function handleCanvasMouseUp(event) {
     dragPoint = null
     saveAnnotations()
     drawTree()
+  } else if (isResizingHistory) {
+    isResizingHistory = false
+    resizeHistoryStartX = null
+    resizeHistoryStartWidth = null
   }
 }
 
@@ -535,6 +576,13 @@ function startResize(event) {
 
   document.addEventListener('mousemove', onMouseMove)
   document.addEventListener('mouseup', onMouseUp)
+}
+
+function startResizeHistory(event) {
+  event.preventDefault()
+  isResizingHistory = true
+  resizeHistoryStartX = event.clientX
+  resizeHistoryStartWidth = historyWidth.value
 }
 
 function isValidTreeStructure(str) {
@@ -636,6 +684,8 @@ onMounted(() => {
   loadCanvasSize()
   loadHistory()
   loadAnnotations()
+  loadHistoryWidth()
+  loadHistoryOffset()
   nextTick(() => drawTree())
 })
 
@@ -686,5 +736,34 @@ canvas {
   z-index: 9999;
   user-select: none;
   font-weight: 600;
+}
+
+.history-panel {
+  position: absolute;
+  right: 20px;
+  top: 0;
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: width 0.2s ease, right 0.2s ease;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.resize-handle-left {
+  position: absolute;
+  left: -5px;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  background: #007bff;
+  cursor: ew-resize;
+  border-radius: 3px;
+}
+
+.resize-handle-left:hover {
+  background: #0056b3;
 }
 </style>
