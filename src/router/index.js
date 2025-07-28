@@ -8,6 +8,10 @@ import GraphVisualizer from '../views/DataStructure/GraphVisualizer.vue'
 import Index from '../views/Index.vue'
 
 const routes = [
+    {
+    path: '/Math_Calculator',
+    component: Index
+  },
   {
     path: '/',
     component: Index
