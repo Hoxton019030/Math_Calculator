@@ -27,6 +27,11 @@
             排列組合計算器
           </router-link>
         </li>
+         <li class="mb-2">
+          <router-link class="text-white text-decoration-none" to="/discrete/euclidean_gcd">
+            歐幾里德輾轉相除法計算器
+          </router-link>
+        </li>
       </ul>
     </div>
         <div class="mt-4">

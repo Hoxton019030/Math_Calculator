@@ -5,6 +5,7 @@ import CombinationPermutationCalculator  from '../views/Discrete/CombinationPerm
 import TreeVisual from '../views/DataStructure/TreeVisual.vue'
 import LinearAlgebraCalculator from '../views/LinearAlgebra/LinearAlgebraCalculator.vue'
 import GraphVisualizer from '../views/DataStructure/GraphVisualizer.vue'
+import EuclideanCalculator from '../views/Discrete/EuclideanCalculator.vue'
 import Index from '../views/Index.vue'
 
 const routes = [
@@ -41,6 +42,10 @@ const routes = [
    {
     path: '/discrete/combinatorics',
     component: CombinationPermutationCalculator
+  },  
+  {
+    path: '/discrete/euclidean_gcd',
+    component: EuclideanCalculator
   },
    {
     path: '/dataStructure/tree_visual',
