@@ -19,7 +19,7 @@
       <ul class="list-unstyled">
         <li class="mb-2">
           <router-link class="text-white text-decoration-none" to="/discrete/onto">
-            滿射個數計算器
+            Stirling Number-第二類
           </router-link>
         </li>
         <li class="mb-2">
