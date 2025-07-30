@@ -6,6 +6,7 @@ import TreeVisual from '../views/DataStructure/TreeVisual.vue'
 import LinearAlgebraCalculator from '../views/LinearAlgebra/LinearAlgebraCalculator.vue'
 import GraphVisualizer from '../views/DataStructure/GraphVisualizer.vue'
 import EuclideanCalculator from '../views/Discrete/EuclideanCalculator.vue'
+import CubicFactorizer from '../views/LinearAlgebra/CubicFactorizer.vue'
 import Index from '../views/Index.vue'
 
 const routes = [
@@ -54,7 +55,10 @@ const routes = [
   {
     path: '/dataStructure/graph_visual',
     component: GraphVisualizer
-  },
+  },{
+    path:'/linear-algebra/CubicFactorizer',
+    component :CubicFactorizer
+  }
 ]
 
 const router = createRouter({
