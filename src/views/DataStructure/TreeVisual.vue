@@ -261,7 +261,7 @@ function drawTree() {
 }
 
 function drawLines(ctx, node) {
-  const size = 30
+  const size = 20
   if (!node.isPlaceholder) {
     for (let child of node.children) {
       const dx = (child.x + 40) - (node.x + 40)
