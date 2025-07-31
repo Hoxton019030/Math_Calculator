@@ -7,6 +7,7 @@ import LinearAlgebraCalculator from '../views/LinearAlgebra/LinearAlgebraCalcula
 import GraphVisualizer from '../views/DataStructure/GraphVisualizer.vue'
 import EuclideanCalculator from '../views/Discrete/EuclideanCalculator.vue'
 import CubicFactorizer from '../views/LinearAlgebra/CubicFactorizer.vue'
+import BasicVectorVistual from '../views/LinearAlgebra/BasicVectorVistual.vue'
 import Index from '../views/Index.vue'
 
 const routes = [
@@ -58,6 +59,9 @@ const routes = [
   },{
     path:'/linear-algebra/CubicFactorizer',
     component :CubicFactorizer
+  },{
+    path:'/linear-algebra/BasicVectorVisual',
+    component :BasicVectorVistual
   }
 ]
 

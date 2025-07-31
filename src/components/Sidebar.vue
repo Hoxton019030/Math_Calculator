@@ -12,6 +12,7 @@
         </li>
          <li class="mb-2"><router-link class="text-white text-decoration-none" to="/linear-algebra/LinearAlgebraCalculator">矩陣計算機</router-link></li>
          <li class="mb-2"><router-link class="text-white text-decoration-none" to="/linear-algebra/CubicFactorizer">三次方程因式分解計算機</router-link></li>
+           <li class="mb-2"><router-link class="text-white text-decoration-none" to="/linear-algebra/BasicVectorVisual">基向量變化視覺化</router-link></li>
       </ul>
     </div>
 
