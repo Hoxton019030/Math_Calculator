@@ -143,9 +143,9 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from
 const canvas = ref(null)
 const ctx = ref(null)
 
-const basis1 = reactive({ x: 1, y: 0 })
-const basis2 = reactive({ x: 0, y: 1 })
-const targetVector = reactive({ x: 1, y: 5 })
+const basis1 = reactive({ x: 1, y: 0 }) // 標準基底
+const basis2 = reactive({ x: 0, y: 1 }) // 標準基底
+const targetVector = reactive({ x: 4, y: 5 }) // 與圖片匹配
 const showStandardGrid = ref(true)
 
 const determinant = computed(() => {
@@ -155,8 +155,8 @@ const newBasisCoordinates = computed(() => {
   if (!isLinearlyIndependent.value) return { c1: 0, c2: 0 }
   
   const det = determinant.value
-  const c1 = (targetVector.y * basis2.x - targetVector.x * basis2.y) / det
-  const c2 = (targetVector.x * basis1.y - targetVector.y * basis1.x) / det
+  const c1 = (targetVector.x * basis2.y - targetVector.y * basis2.x) / det
+  const c2 = -(targetVector.x * basis1.y - targetVector.y * basis1.x) / det // 修正公式
   
   return { c1, c2 }
 })
@@ -231,12 +231,10 @@ const drawGrid = (b1, b2, color = '#9b59b6', opacity = 0.3) => {
   
   const range = 15
   
-  // 檢查基向量是否為標準基底
   const isStandardBasis = (Math.abs(b1.x - 1) < 0.001 && Math.abs(b1.y) < 0.001 && 
                           Math.abs(b2.x) < 0.001 && Math.abs(b2.y - 1) < 0.001)
   
   if (isStandardBasis) {
-    // 如果是標準基底，使用更簡單的網格繪製方法
     const topLeft = fromCanvas(0, 0)
     const bottomRight = fromCanvas(canvas.value.width, canvas.value.height)
     
@@ -258,7 +256,6 @@ const drawGrid = (b1, b2, color = '#9b59b6', opacity = 0.3) => {
       ctx.value.stroke()
     }
   } else {
-    // 非標準基底使用原來的方法
     for (let i = -range; i <= range; i++) {
       for (let j = -range; j <= range; j++) {
         if (i === 0 && j === 0) continue
@@ -274,7 +271,6 @@ const drawGrid = (b1, b2, color = '#9b59b6', opacity = 0.3) => {
         const p2 = toCanvas(x2, y2)
         const p3 = toCanvas(x3, y3)
         
-        // 檢查點是否在可見範圍內
         if (Math.abs(p1.x) < canvas.value.width * 1.5 && Math.abs(p1.y) < canvas.value.height * 1.5) {
           ctx.value.beginPath()
           ctx.value.moveTo(p1.x, p1.y)
@@ -303,7 +299,7 @@ const drawStandardGrid = () => {
   
   const topLeft = fromCanvas(0, 0)
   const bottomRight = fromCanvas(canvas.value.width, canvas.value.height)
-  const range = 2 // 擴大範圍確保格線完整顯示
+  const range = 2
   
   for (let x = Math.floor(topLeft.x) - range; x <= Math.ceil(bottomRight.x) + range; x++) {
     const p1 = toCanvas(x, topLeft.y - range)
@@ -337,13 +333,11 @@ const drawVector = (x, y, color = '#e74c3c', lineWidth = 3, label = '') => {
   ctx.value.fillStyle = color
   ctx.value.lineWidth = lineWidth
   
-  // 繪製線條
   ctx.value.beginPath()
   ctx.value.moveTo(start.x, start.y)
   ctx.value.lineTo(end.x, end.y)
   ctx.value.stroke()
   
-  // 繪製箭頭
   const angle = Math.atan2(end.y - start.y, end.x - start.x)
   const arrowLength = 15
   const arrowAngle = Math.PI / 6
@@ -361,11 +355,10 @@ const drawVector = (x, y, color = '#e74c3c', lineWidth = 3, label = '') => {
   )
   ctx.value.stroke()
   
-  // 繪製標籤
   if (label) {
     ctx.value.fillStyle = color
     ctx.value.font = '14px Arial'
-    ctx.value.fillText(label, end.x + 10, end.y - 10)
+    ctx.value.fillText(label, end.x - 30, end.y - 20)
   }
   
   ctx.value.restore()
@@ -380,13 +373,11 @@ const drawAxes = () => {
   ctx.value.strokeStyle = '#2c3e50'
   ctx.value.lineWidth = 2
   
-  // X軸
   ctx.value.beginPath()
   ctx.value.moveTo(0, center.y)
   ctx.value.lineTo(canvas.value.width, center.y)
   ctx.value.stroke()
   
-  // Y軸
   ctx.value.beginPath()
   ctx.value.moveTo(center.x, 0)
   ctx.value.lineTo(center.x, canvas.value.height)
@@ -402,30 +393,24 @@ const draw = () => {
   
   if (!isLinearlyIndependent.value) return
   
-  // 檢查是否為標準基底
   const isStandardBasis = (Math.abs(basis1.x - 1) < 0.001 && Math.abs(basis1.y) < 0.001 && 
                           Math.abs(basis2.x) < 0.001 && Math.abs(basis2.y - 1) < 0.001)
   
-  // 繪製標準網格（可選）
   if (showStandardGrid.value) {
     drawStandardGrid()
   }
   
-  // 繪製坐標軸
   drawAxes()
   
-  // 只有在非標準基底時才繪製新基底格線
   if (!isStandardBasis) {
     drawGrid({ x: basis1.x, y: basis1.y }, { x: basis2.x, y: basis2.y })
   }
   
-  // 繪製基向量（只有在非標準基底時才顯示，避免與坐標軸重疊）
   if (!isStandardBasis) {
     drawVector(basis1.x, basis1.y, '#9b59b6', 3, 'b₁')
     drawVector(basis2.x, basis2.y, '#9b59b6', 3, 'b₂')
   }
   
-  // 繪製目標向量，並顯示在新基底下的坐標
   const { c1, c2 } = newBasisCoordinates.value
   const targetLabel = isLinearlyIndependent.value ? `v (${c1.toFixed(2)}, ${c2.toFixed(2)})` : 'v'
   drawVector(targetVector.x, targetVector.y, '#e74c3c', 4, targetLabel)
@@ -440,10 +425,8 @@ const resizeCanvas = () => {
   canvas.value.width = container.clientWidth
   canvas.value.height = container.clientHeight
   
-  // 確保重新獲取繪圖上下文
   ctx.value = canvas.value.getContext('2d')
   
-  // 延遲繪製確保畫布已準備好
   setTimeout(() => {
     draw()
   }, 10)
@@ -461,7 +444,6 @@ const updateVisualization = () => {
   })
 }
 
-// 預設範例方法
 const setStandardBasis = () => {
   basis1.x = 1
   basis1.y = 0
@@ -494,22 +476,18 @@ const randomBasis = () => {
   basis2.y = parseFloat((Math.random() * 6 - 3).toFixed(1))
 }
 
-// 監聽數據變化
 watch([basis1, basis2, targetVector, showStandardGrid], () => {
   updateVisualization()
 }, { deep: true })
 
-// 生命週期
 onMounted(() => {
   nextTick(() => {
     if (canvas.value) {
       ctx.value = canvas.value.getContext('2d')
       resizeCanvas()
       
-      // 添加窗口大小變化監聽器
       window.addEventListener('resize', handleResize)
       
-      // 確保初始繪製
       setTimeout(() => {
         draw()
       }, 100)
