@@ -64,6 +64,14 @@
           </div>
         </div>
 
+        <div class="input-group">
+          <label>向量行為</label>
+          <select v-model="vectorBehavior" @change="updateVectorBehavior">
+            <option value="fixed">固定</option>
+            <option value="stretch">拉伸</option>
+          </select>
+        </div>
+
         <div class="preset-buttons">
           <button @click="setStandardBasis">標準基底</button>
           <button @click="setExample1">範例 1</button>
@@ -147,6 +155,8 @@ const basis1 = reactive({ x: 1, y: 0 }) // 標準基底
 const basis2 = reactive({ x: 0, y: 1 }) // 標準基底
 const targetVector = reactive({ x: 4, y: 5 }) // 與圖片匹配
 const showStandardGrid = ref(true)
+const vectorBehavior = ref('fixed') // 新增向量行為選項，預設為固定
+const initialTargetVector = reactive({ x: 4, y: 5 }) // 儲存初始目標向量
 
 const determinant = computed(() => {
   return basis1.x * basis2.y - basis1.y * basis2.x
@@ -444,11 +454,40 @@ const updateVisualization = () => {
   })
 }
 
+const updateVectorBehavior = () => {
+  if (vectorBehavior.value === 'stretch' && isLinearlyIndependent.value) {
+    // 計算新基底下的目標向量，使其在新基底坐標保持與初始值 (c1, c2) 一致
+    const det = determinant.value
+    const c1 = (initialTargetVector.x * basis2.y - initialTargetVector.y * basis2.x) / det
+    const c2 = -(initialTargetVector.x * basis1.y - initialTargetVector.y * basis1.x) / det
+    targetVector.x = c1 * basis1.x + c2 * basis2.x
+    targetVector.y = c1 * basis1.y + c2 * basis2.y
+  } else if (vectorBehavior.value === 'fixed') {
+    // 恢復到初始值
+    targetVector.x = initialTargetVector.x
+    targetVector.y = initialTargetVector.y
+  }
+  updateVisualization()
+}
+
+// 監聽基底向量變化，實時更新目標向量
+watch([basis1, basis2], () => {
+  if (vectorBehavior.value === 'stretch' && isLinearlyIndependent.value) {
+    const det = determinant.value
+    const c1 = (initialTargetVector.x * basis2.y - initialTargetVector.y * basis2.x) / det
+    const c2 = -(initialTargetVector.x * basis1.y - initialTargetVector.y * basis1.x) / det
+    targetVector.x = c1 * basis1.x + c2 * basis2.x
+    targetVector.y = c1 * basis1.y + c2 * basis2.y
+    updateVisualization()
+  }
+}, { deep: true })
+
 const setStandardBasis = () => {
   basis1.x = 1
   basis1.y = 0
   basis2.x = 0
   basis2.y = 1
+  updateVectorBehavior()
 }
 
 const setExample1 = () => {
@@ -458,6 +497,9 @@ const setExample1 = () => {
   basis2.y = -2
   targetVector.x = -7
   targetVector.y = 4
+  initialTargetVector.x = -7
+  initialTargetVector.y = 4
+  updateVectorBehavior()
 }
 
 const setExample2 = () => {
@@ -467,6 +509,9 @@ const setExample2 = () => {
   basis2.y = 3
   targetVector.x = 5
   targetVector.y = -2
+  initialTargetVector.x = 5
+  initialTargetVector.y = -2
+  updateVectorBehavior()
 }
 
 const randomBasis = () => {
@@ -474,9 +519,10 @@ const randomBasis = () => {
   basis1.y = parseFloat((Math.random() * 6 - 3).toFixed(1))
   basis2.x = parseFloat((Math.random() * 6 - 3).toFixed(1))
   basis2.y = parseFloat((Math.random() * 6 - 3).toFixed(1))
+  updateVectorBehavior()
 }
 
-watch([basis1, basis2, targetVector, showStandardGrid], () => {
+watch([targetVector, showStandardGrid], () => {
   updateVisualization()
 }, { deep: true })
 
@@ -572,7 +618,7 @@ canvas {
   gap: 10px;
 }
 
-input[type="number"] {
+input[type="number"], select {
   width: 100%;
   padding: 12px;
   border: none;
@@ -583,7 +629,7 @@ input[type="number"] {
   transition: all 0.3s ease;
 }
 
-input[type="number"]:focus {
+input[type="number"]:focus, select:focus {
   outline: none;
   background: white;
   box-shadow: 0 0 20px rgba(255,255,255,0.3);
