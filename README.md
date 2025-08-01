@@ -2,7 +2,9 @@
 
 https://hoxtoncraft.com/Math_Calculator/
 
+
 目前支援
+
 
 + 三次方程因式分解
 + 基向量變化視覺化
@@ -12,7 +14,9 @@ https://hoxtoncraft.com/Math_Calculator/
 + Tree的視覺化(支援無向/有向圖，延伸二元樹，Forest...)
 + Graph視覺化
 
-![](https://i.imgur.com/EJoPDaN.png)
+![](https://i.imgur.com/ztbtDT9.png)
+
+![](https://i.imgur.com/z0rVdGr.gif)
 
 ![](https://i.imgur.com/FeAqPLA.png)
 
