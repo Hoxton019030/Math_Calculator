@@ -18,7 +18,7 @@
 
     <div class="mt-4">
       <h6 class="text-secondary">離散數學</h6>
-      <ul class="list-unstyled">
+      <ul class="list-unstyled ms-2">
         <li class="mb-2">
           <router-link class="text-white text-decoration-none" to="/discrete/onto">
             Stirling Number-第二類
@@ -38,7 +38,7 @@
     </div>
         <div class="mt-4">
       <h6 class="text-secondary">資料結構</h6>
-      <ul class="list-unstyled">
+      <ul class="list-unstyled ms-2">
         <li class="mb-2">
           <router-link class="text-white text-decoration-none" to="/dataStructure/tree_visual">
             Tree 的視覺化
