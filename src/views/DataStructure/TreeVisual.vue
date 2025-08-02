@@ -35,31 +35,38 @@
             @mouseup="handleCanvasMouseUp"></canvas>
           <div class="resize-handle" @mousedown="startResize"></div>
         </div>
-        <div class="mt-3 d-flex gap-2 flex-wrap">
-          <button class="btn btn-success" @click="copyCanvasToClipboard">
-            截圖按鈕
-          </button>
-          <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
-            <label for="nodeSizeSlider" class="form-label mb-0">節點大小：</label>
-            <input id="nodeSizeSlider" type="range" min="10" max="80" v-model="nodeSize" />
-            <span>{{ nodeSize }}</span>
-          </div>
-          <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
-            <label for="heightBetweenNodeSlider" class="form-label mb-0">節點彼此高度：</label>
-            <input id="heightBetweenNodeSlider" type="range" min="10" max="200" v-model="heightBetweenNode" />
-            <span>{{ heightBetweenNode }}</span>
-          </div>
-          <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
-            <label for="nodeLineSlider" class="form-label mb-0">節點連結線長度：</label>
-            <input id="nodeLineSlider" type="range" min="10" max="100" v-model="nodeLineLength" />
-            <span>{{ nodeLineLength }}</span>
-          </div>
-          <div class="mb-3">
-            <button class="btn btn-secondary" @click="resetDefaults">還原預設</button>
-          </div>
+        <div class="mt-3">
+  <!-- 第一排：功能按鈕 -->
+  <div class="d-flex gap-2 flex-wrap mb-3">
+    <button class="btn btn-success" @click="copyCanvasToClipboard">
+      截圖按鈕
+    </button>
+    <button class="btn btn-secondary" @click="resetDefaults">
+      還原預設
+    </button>
+  </div>
 
+  <!-- 第二排：設定滑桿 -->
+  <div class="d-flex gap-4 flex-wrap">
+    <div class="d-flex align-items-center gap-2">
+      <label for="nodeSizeSlider" class="form-label mb-0">節點大小：</label>
+      <input id="nodeSizeSlider" type="range" min="10" max="80" v-model="nodeSize" />
+      <span>{{ nodeSize }}</span>
+    </div>
 
-        </div>
+    <div class="d-flex align-items-center gap-2">
+      <label for="heightBetweenNodeSlider" class="form-label mb-0">節點彼此高度：</label>
+      <input id="heightBetweenNodeSlider" type="range" min="10" max="200" v-model="heightBetweenNode" />
+      <span>{{ heightBetweenNode }}</span>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <label for="nodeLineSlider" class="form-label mb-0">節點連結線長度：</label>
+      <input id="nodeLineSlider" type="range" min="10" max="100" v-model="nodeLineLength" />
+      <span>{{ nodeLineLength }}</span>
+    </div>
+  </div>
+</div>
         <div v-if="copySuccess" class="copy-toast">已複製到剪貼簿！</div>
       </div>
       <div class="col-md-4">
