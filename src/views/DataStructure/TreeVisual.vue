@@ -44,6 +44,16 @@
             <input id="nodeSizeSlider" type="range" min="10" max="80" v-model="nodeSize" />
             <span>{{ nodeSize }}</span>
           </div>
+          <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+            <label for="heightBetweenNodeSlider" class="form-label mb-0">節點彼此高度：</label>
+            <input id="heightBetweenNodeSlider" type="range" min="10" max="200" v-model="heightBetweenNode" />
+            <span>{{ heightBetweenNode }}</span>
+          </div>
+          <div class="mb-3">
+  <button class="btn btn-secondary" @click="resetDefaults">還原預設</button>
+</div>
+          
+
         </div>
         <div v-if="copySuccess" class="copy-toast">已複製到剪貼簿！</div>
       </div>
@@ -60,6 +70,7 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 import HistoryPanel from '../../components/History_Panel.vue'
 
 const nodeSize = ref(30) // 預設節點大小，可調整範圍 10~80
+const heightBetweenNode= ref(80)
 const inputText = ref('A(_,->[C](<-D,->E))')
 const canvas = ref(null)
 const canvasContainer = ref(null)
@@ -88,6 +99,12 @@ let dragPoint = null
 let isResizingHistory = false
 let resizeHistoryStartX = null
 let resizeHistoryStartWidth = null
+
+
+function resetDefaults() {
+  nodeSize.value = ref(30).value
+  heightBetweenNode.value = ref(80).value
+}
 
 function loadCanvasSize() {
   const savedSize = localStorage.getItem(CANVAS_SIZE_KEY)
@@ -221,7 +238,7 @@ function parseForest(str) {
 
 
 function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
-  const node = { ...root, x: 0, y: depth * 100, children: [] }
+  const node = { ...root, x: 0, y: depth * heightBetweenNode.value, children: [] }
   for (let child of root.children) {
     const childNode = calculatePositions(child, depth + 1, xOffset)
     node.children.push(childNode)
@@ -327,7 +344,7 @@ function drawNode(ctx, node) {
 
 function drawArrow(ctx, fromX, fromY, toX, toY) {
   const headLength = 10
-  const dx = toX - fromX 
+  const dx = toX - fromX
   const dy = toY - fromY
   const angle = Math.atan2(dy, dx)
 
@@ -739,7 +756,7 @@ onMounted(() => {
 })
 
 watch(
-  [history, treeMode, toolMode, nodeSize],
+  [history, treeMode, toolMode, nodeSize,heightBetweenNode],
   () => {
     saveHistory()
     drawTree()
