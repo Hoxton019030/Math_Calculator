@@ -11,7 +11,7 @@
             <option value="undirected">無向樹</option>
             <option value="directed">有向樹</option>
           </select>
-          <input ref="inputField" v-model="inputText" type="text" 
+          <input ref="inputField" v-model="inputText" type="text"
             :placeholder="treeMode === 'undirected' ? '輸入無向樹，例如 1(2,3(4))5(6) 或 [1](2,3(4))' : '輸入有向樹，例如 1(->2,3(<-4,->5)) 或 [1](->2,3(<-4,->5))'"
             class="form-control" @keydown="handleKeyDown" />
           <button @click="saveAndDrawTree" class="btn btn-primary">建立樹</button>
@@ -24,29 +24,32 @@
             <option value="edit">編輯筆記</option>
           </select>
           <button @click="clearAnnotations" class="btn btn-warning">清除筆記</button>
-          <button v-if="selectedAnnotation !== null" @click="editSelectedAnnotation" class="btn btn-info">編輯選中筆記</button>
-          <button v-if="selectedAnnotation !== null" @click="deleteSelectedAnnotation" class="btn btn-danger">刪除選中筆記</button>
+          <button v-if="selectedAnnotation !== null" @click="editSelectedAnnotation"
+            class="btn btn-info">編輯選中筆記</button>
+          <button v-if="selectedAnnotation !== null" @click="deleteSelectedAnnotation"
+            class="btn btn-danger">刪除選中筆記</button>
         </div>
         <div class="canvas-container" ref="canvasContainer">
           <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border"
-            @mousedown="handleCanvasMouseDown" @mousemove="handleCanvasMouseMove" @mouseup="handleCanvasMouseUp"></canvas>
+            @mousedown="handleCanvasMouseDown" @mousemove="handleCanvasMouseMove"
+            @mouseup="handleCanvasMouseUp"></canvas>
           <div class="resize-handle" @mousedown="startResize"></div>
         </div>
         <div class="mt-3 d-flex gap-2 flex-wrap">
           <button class="btn btn-success" @click="copyCanvasToClipboard">
             截圖按鈕
           </button>
+          <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+            <label for="nodeSizeSlider" class="form-label mb-0">節點大小：</label>
+            <input id="nodeSizeSlider" type="range" min="10" max="80" v-model="nodeSize" />
+            <span>{{ nodeSize }}</span>
+          </div>
         </div>
         <div v-if="copySuccess" class="copy-toast">已複製到剪貼簿！</div>
       </div>
       <div class="col-md-4">
-        <HistoryPanel
-          :history="history"
-          :width="historyWidth"
-          :offset="historyOffset"
-          @clearHistory="clearHistory"
-          @loadHistoryItem="loadHistoryItem"
-        />
+        <HistoryPanel :history="history" :width="historyWidth" :offset="historyOffset" @clearHistory="clearHistory"
+          @loadHistoryItem="loadHistoryItem" />
       </div>
     </div>
   </div>
@@ -56,6 +59,7 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import HistoryPanel from '../../components/History_Panel.vue'
 
+const nodeSize = ref(30) // 預設節點大小，可調整範圍 10~80
 const inputText = ref('A(_,->[C](<-D,->E))')
 const canvas = ref(null)
 const canvasContainer = ref(null)
@@ -168,7 +172,7 @@ function parseForest(str) {
     let name = ''
     let isSquare = false
     skipSpaces()
-    
+
     if (str[index] === '[') {
       isSquare = true
       index++
@@ -295,7 +299,7 @@ function drawLines(ctx, node) {
 }
 
 function drawNode(ctx, node) {
-  const size = 30
+  const size = nodeSize.value
   const rectSize = 23 // Adjusted rectangle size (half of the original 60x60)
   ctx.lineWidth = 2
   if (!node.isPlaceholder) {
@@ -349,7 +353,7 @@ function drawAnnotations(ctx) {
   annotations.value.forEach((annotation, index) => {
     ctx.strokeStyle = selectedAnnotation.value === index ? '#00ff00' : '#ff0000'
     ctx.fillStyle = selectedAnnotation.value === index ? '#00ff00' : '#ff0000'
-    
+
     if (annotation.type === 'arrow') {
       ctx.beginPath()
       ctx.moveTo(annotation.startX, annotation.startY)
