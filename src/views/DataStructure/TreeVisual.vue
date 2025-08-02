@@ -49,10 +49,15 @@
             <input id="heightBetweenNodeSlider" type="range" min="10" max="200" v-model="heightBetweenNode" />
             <span>{{ heightBetweenNode }}</span>
           </div>
+          <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+            <label for="nodeLineSlider" class="form-label mb-0">節點連結線長度：</label>
+            <input id="nodeLineSlider" type="range" min="10" max="100" v-model="nodeLineLength" />
+            <span>{{ nodeLineLength }}</span>
+          </div>
           <div class="mb-3">
-  <button class="btn btn-secondary" @click="resetDefaults">還原預設</button>
-</div>
-          
+            <button class="btn btn-secondary" @click="resetDefaults">還原預設</button>
+          </div>
+
 
         </div>
         <div v-if="copySuccess" class="copy-toast">已複製到剪貼簿！</div>
@@ -70,7 +75,8 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 import HistoryPanel from '../../components/History_Panel.vue'
 
 const nodeSize = ref(30) // 預設節點大小，可調整範圍 10~80
-const heightBetweenNode= ref(80)
+const heightBetweenNode = ref(80)
+const nodeLineLength = ref(30)
 const inputText = ref('A(_,->[C](<-D,->E))')
 const canvas = ref(null)
 const canvasContainer = ref(null)
@@ -104,6 +110,7 @@ let resizeHistoryStartWidth = null
 function resetDefaults() {
   nodeSize.value = ref(30).value
   heightBetweenNode.value = ref(80).value
+  nodeLineLength.value =ref(30).value
 }
 
 function loadCanvasSize() {
@@ -283,7 +290,7 @@ function drawTree() {
 }
 
 function drawLines(ctx, node) {
-  const size = 30
+  const size = nodeLineLength.value
   if (!node.isPlaceholder) {
     for (let child of node.children) {
       const dx = (child.x + 40) - (node.x + 40)
@@ -318,12 +325,12 @@ function drawLines(ctx, node) {
 
 function drawNode(ctx, node) {
   const size = nodeSize.value
-  const rectSize = 23 // Adjusted rectangle size (half of the original 60x60)
+  const rectSize = nodeSize.value / 1.33 // Adjusted rectangle size (half of the original 60x60)
   ctx.lineWidth = 2
   if (!node.isPlaceholder) {
     ctx.beginPath()
     if (node.isSquare) {
-      ctx.rect(node.x + 18, node.y + 18, rectSize * 2, rectSize * 2) // Adjusted to 40x40
+      ctx.rect(node.x + 40 - rectSize, node.y + 40 - rectSize, rectSize * 2, rectSize * 2) // Adjusted to 40x40
     } else {
       ctx.arc(node.x + 40, node.y + 40, size, 0, 2 * Math.PI)
     }
@@ -756,7 +763,7 @@ onMounted(() => {
 })
 
 watch(
-  [history, treeMode, toolMode, nodeSize,heightBetweenNode],
+  [history, treeMode, toolMode, nodeSize, heightBetweenNode, nodeLineLength],
   () => {
     saveHistory()
     drawTree()
