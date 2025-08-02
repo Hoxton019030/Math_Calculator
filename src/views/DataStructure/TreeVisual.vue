@@ -219,8 +219,9 @@ function parseForest(str) {
   return forest
 }
 
+
 function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
-  const node = { ...root, x: 0, y: depth * 80, children: [] }
+  const node = { ...root, x: 0, y: depth * 100, children: [] }
   for (let child of root.children) {
     const childNode = calculatePositions(child, depth + 1, xOffset)
     node.children.push(childNode)
@@ -326,7 +327,7 @@ function drawNode(ctx, node) {
 
 function drawArrow(ctx, fromX, fromY, toX, toY) {
   const headLength = 10
-  const dx = toX - fromX
+  const dx = toX - fromX 
   const dy = toY - fromY
   const angle = Math.atan2(dy, dx)
 
@@ -738,7 +739,7 @@ onMounted(() => {
 })
 
 watch(
-  [history, treeMode, toolMode],
+  [history, treeMode, toolMode, nodeSize],
   () => {
     saveHistory()
     drawTree()
