@@ -1,6 +1,6 @@
 <template>
   <div class="container py-4">
-    <h1 class="mb-4 text-center">Canvas 樹狀結構視覺化</h1>
+    <h1 class="mb-4 text-center">Tree 結構視覺化</h1>
     <div class="row">
       <div class="col-md-8">
         <div v-if="errorMessage" class="alert alert-danger mt-3">
