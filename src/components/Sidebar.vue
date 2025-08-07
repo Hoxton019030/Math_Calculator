@@ -122,10 +122,10 @@ function toggleSidebar() {
   font-size: 20px;
 }
 
-.text-white:hover {
+/* .text-white:hover {
   color: #e9ecef;
   text-decoration: underline;
-}
+} */
 
 .btn-outline-light {
   border-color: #6c757d;
