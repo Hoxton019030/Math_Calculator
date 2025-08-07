@@ -555,13 +555,20 @@ function handleCanvasMouseDown(event) {
 }
 
 function handleCanvasDoubleClick(event) {
-  if (toolMode.value !== 'edit') return
   event.preventDefault()
   const rect = canvas.value.getBoundingClientRect()
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
-
   const ctx = canvas.value.getContext('2d')
+
+  // 如果正在顯示輸入框，先確認並關閉
+  if (showTextInput.value) {
+    confirmTextInput()
+    return
+  }
+
+  // 檢查是否點擊在現有文字上
+  let textClicked = false
   annotations.value.forEach((annotation, index) => {
     if (annotation.type === 'text' && isPointNearText(x, y, annotation.x, annotation.y, annotation.text, ctx)) {
       selectedAnnotation.value = index
@@ -570,11 +577,24 @@ function handleCanvasDoubleClick(event) {
       textInputValue.value = annotation.text
       showTextInput.value = true
       isEditingText.value = true
+      textClicked = true
       nextTick(() => {
         if (textInput.value) textInput.value.focus()
       })
     }
   })
+
+  // 如果沒有點擊在文字上，則在空白處新增文字
+  if (!textClicked) {
+    textInputX.value = Math.min(x, canvasWidth.value - 150)
+    textInputY.value = Math.min(y, canvasHeight.value - 30)
+    textInputValue.value = ''
+    showTextInput.value = true
+    isEditingText.value = false
+    nextTick(() => {
+      if (textInput.value) textInput.value.focus()
+    })
+  }
 }
 
 function handleCanvasMouseMove(event) {
