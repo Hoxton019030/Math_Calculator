@@ -23,7 +23,15 @@
             <option value="text">添加文字</option>
             <option value="edit">編輯筆記</option>
           </select>
+          <select v-model="nodeColor" class="form-select" style="width: auto;" v-if="toolMode === 'select'">
+            <option value="red">紅色</option>
+            <option value="gray">灰色</option>
+          </select>
+          <input v-if="showTextInput" ref="textInput" v-model="textInputValue" type="text"
+            class="form-control text-input" placeholder="輸入文字" @keydown.enter="confirmTextInput"
+            @blur="confirmTextInput" @click.stop />
           <button @click="clearAnnotations" class="btn btn-warning">清除筆記</button>
+          <button @click="clearNodeColors" class="btn btn-warning">清除節點顏色</button>
           <button v-if="selectedAnnotation !== null" @click="editSelectedAnnotation"
             class="btn btn-info">編輯選中筆記</button>
           <button v-if="selectedAnnotation !== null" @click="deleteSelectedAnnotation"
@@ -32,36 +40,32 @@
         <div class="canvas-container" ref="canvasContainer">
           <canvas ref="canvas" :width="canvasWidth" :height="canvasHeight" class="border"
             @mousedown="handleCanvasMouseDown" @mousemove="handleCanvasMouseMove"
-            @mouseup="handleCanvasMouseUp"></canvas>
+            @mouseup="handleCanvasMouseUp" @dblclick="handleCanvasDoubleClick"></canvas>
           <div class="resize-handle" @mousedown="startResize"></div>
         </div>
         <div class="mt-3">
-  <!-- 第一排：功能按鈕 -->
-  <div class="d-flex gap-2 flex-wrap mb-3">
-    <button class="btn btn-success" @click="copyCanvasToClipboard">截圖按鈕</button>
-    <button class="btn btn-secondary" @click="resetDefaults">還原預設</button>
-  </div>
-
-  <!-- 第二排：設定滑桿 -->
-  <div class="setting-grid">
-    <div class="setting-row">
-      <label for="nodeSizeSlider">節點大小：</label>
-      <input id="nodeSizeSlider" type="range" min="10" max="80" v-model="nodeSize" />
-      <span>{{ nodeSize }}</span>
-    </div>
-    <div class="setting-row">
-      <label for="heightBetweenNodeSlider">節點彼此高度：</label>
-      <input id="heightBetweenNodeSlider" type="range" min="10" max="200" v-model="heightBetweenNode" />
-      <span>{{ heightBetweenNode }}</span>
-    </div>
-    <div class="setting-row">
-      <label for="nodeLineSlider">節點連結線長度：</label>
-      <input id="nodeLineSlider" type="range" min="10" max="100" v-model="nodeLineLength" />
-      <span>{{ nodeLineLength }}</span>
-    </div>
-  </div>
-</div>
-
+          <div class="d-flex gap-2 flex-wrap mb-3">
+            <button class="btn btn-success" @click="copyCanvasToClipboard">截圖按鈕</button>
+            <button class="btn btn-secondary" @click="resetDefaults">還原預設</button>
+          </div>
+          <div class="setting-grid">
+            <div class="setting-row">
+              <label for="nodeSizeSlider">節點大小：</label>
+              <input id="nodeSizeSlider" type="range" min="10" max="80" v-model="nodeSize" />
+              <span>{{ nodeSize }}</span>
+            </div>
+            <div class="setting-row">
+              <label for="heightBetweenNodeSlider">節點彼此高度：</label>
+              <input id="heightBetweenNodeSlider" type="range" min="10" max="200" v-model="heightBetweenNode" />
+              <span>{{ heightBetweenNode }}</span>
+            </div>
+            <div class="setting-row">
+              <label for="nodeLineSlider">節點連結線長度：</label>
+              <input id="nodeLineSlider" type="range" min="10" max="100" v-model="nodeLineLength" />
+              <span>{{ nodeLineLength }}</span>
+            </div>
+          </div>
+        </div>
         <div v-if="copySuccess" class="copy-toast">已複製到剪貼簿！</div>
       </div>
       <div class="col-md-4">
@@ -76,26 +80,34 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import HistoryPanel from '../../components/History_Panel.vue'
 
-const nodeSize = ref(30) // 預設節點大小，可調整範圍 10~80
+const nodeSize = ref(30)
 const heightBetweenNode = ref(80)
 const nodeLineLength = ref(30)
 const inputText = ref('A(_,->[C](<-D,->E))')
 const canvas = ref(null)
 const canvasContainer = ref(null)
 const inputField = ref(null)
+const textInput = ref(null)
 const canvasWidth = ref(800)
 const canvasHeight = ref(400)
 const history = ref([])
-const selectedNodes = ref(new Set())
+const selectedNodes = ref(new Map())
+const nodeColor = ref('red')
 const treeMode = ref('directed')
 const toolMode = ref('select')
 const annotations = ref([])
 const selectedAnnotation = ref(null)
 const historyWidth = ref(250)
 const historyOffset = ref(20)
+const showTextInput = ref(false)
+const textInputValue = ref('')
+const textInputX = ref(0)
+const textInputY = ref(0)
+const isEditingText = ref(false)
 const HISTORY_KEY = 'tree_history'
 const CANVAS_SIZE_KEY = 'canvas_size'
 const ANNOTATIONS_KEY = 'canvas_annotations'
+const NODE_COLORS_KEY = 'node_colors'
 const HISTORY_WIDTH_KEY = 'history_width'
 const HISTORY_OFFSET_KEY = 'history_offset'
 const errorMessage = ref('')
@@ -108,11 +120,10 @@ let isResizingHistory = false
 let resizeHistoryStartX = null
 let resizeHistoryStartWidth = null
 
-
 function resetDefaults() {
-  nodeSize.value = ref(30).value
-  heightBetweenNode.value = ref(80).value
-  nodeLineLength.value =ref(30).value
+  nodeSize.value = 30
+  heightBetweenNode.value = 80
+  nodeLineLength.value = 30
 }
 
 function loadCanvasSize() {
@@ -151,6 +162,18 @@ function loadAnnotations() {
 
 function saveAnnotations() {
   localStorage.setItem(ANNOTATIONS_KEY, JSON.stringify(annotations.value))
+}
+
+function loadNodeColors() {
+  const savedColors = localStorage.getItem(NODE_COLORS_KEY)
+  if (savedColors) {
+    const colors = JSON.parse(savedColors)
+    selectedNodes.value = new Map(Object.entries(colors))
+  }
+}
+
+function saveNodeColors() {
+  localStorage.setItem(NODE_COLORS_KEY, JSON.stringify(Object.fromEntries(selectedNodes.value)))
 }
 
 function loadHistoryWidth() {
@@ -245,7 +268,6 @@ function parseForest(str) {
   return forest
 }
 
-
 function calculatePositions(root, depth = 0, xOffset = { x: 0 }) {
   const node = { ...root, x: 0, y: depth * heightBetweenNode.value, children: [] }
   for (let child of root.children) {
@@ -278,9 +300,7 @@ function drawTree() {
     let xOffset = { x: 0 }
     for (const tree of forest) {
       const treeWithPos = calculatePositions(tree, 0, xOffset)
-      // First pass: Draw lines
       drawLines(ctx, treeWithPos)
-      // Second pass: Draw nodes
       drawNode(ctx, treeWithPos)
     }
 
@@ -327,16 +347,17 @@ function drawLines(ctx, node) {
 
 function drawNode(ctx, node) {
   const size = nodeSize.value
-  const rectSize = nodeSize.value / 1.33 // Adjusted rectangle size (half of the original 60x60)
+  const rectSize = nodeSize.value / 1.33
   ctx.lineWidth = 2
   if (!node.isPlaceholder) {
     ctx.beginPath()
     if (node.isSquare) {
-      ctx.rect(node.x + 40 - rectSize, node.y + 40 - rectSize, rectSize * 2, rectSize * 2) // Adjusted to 40x40
+      ctx.rect(node.x + 40 - rectSize, node.y + 40 - rectSize, rectSize * 2, rectSize * 2)
     } else {
       ctx.arc(node.x + 40, node.y + 40, size, 0, 2 * Math.PI)
     }
-    ctx.fillStyle = selectedNodes.value.has(`${node.x},${node.y}`) ? '#ff6666' : '#fff'
+    const nodeKey = `${node.x},${node.y}`
+    ctx.fillStyle = selectedNodes.value.has(nodeKey) ? (selectedNodes.value.get(nodeKey) === 'red' ? '#ff6666' : '#808080') : '#fff'
     ctx.fill()
     ctx.stroke()
     ctx.fillStyle = '#000'
@@ -430,12 +451,19 @@ function isPointNearText(x, y, textX, textY, text, ctx) {
 }
 
 function handleCanvasMouseDown(event) {
+  event.preventDefault()
   const rect = canvas.value.getBoundingClientRect()
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
 
+  // 如果正在顯示輸入框，先確認並關閉
+  if (showTextInput.value) {
+    confirmTextInput()
+    return
+  }
+
   if (toolMode.value === 'select') {
-    const size = 20 // Adjusted to match the new rectSize for square nodes
+    const size = nodeSize.value
     try {
       const forest = parseForest(inputText.value)
       let nodeClicked = false
@@ -446,25 +474,26 @@ function handleCanvasMouseDown(event) {
         function checkNode(node) {
           if (!node.isPlaceholder) {
             if (node.isSquare) {
-              if (x >= node.x + 20 && x <= node.x + 20 + size * 2 && y >= node.y + 20 && y <= node.y + 20 + size * 2) {
+              const rectSize = nodeSize.value / 1.33
+              if (x >= node.x + 40 - rectSize && x <= node.x + 40 + rectSize && y >= node.y + 40 - rectSize && y <= node.y + 40 + rectSize) {
                 const nodeKey = `${node.x},${node.y}`
                 if (selectedNodes.value.has(nodeKey)) {
                   selectedNodes.value.delete(nodeKey)
                 } else {
-                  selectedNodes.value.add(nodeKey)
+                  selectedNodes.value.set(nodeKey, nodeColor.value)
                 }
                 nodeClicked = true
                 return true
               }
             } else {
-              const dx = x - (node.x + 30)
-              const dy = y - (node.y + 30)
+              const dx = x - (node.x + 40)
+              const dy = y - (node.y + 40)
               if (Math.sqrt(dx * dx + dy * dy) <= size) {
                 const nodeKey = `${node.x},${node.y}`
                 if (selectedNodes.value.has(nodeKey)) {
                   selectedNodes.value.delete(nodeKey)
                 } else {
-                  selectedNodes.value.add(nodeKey)
+                  selectedNodes.value.set(nodeKey, nodeColor.value)
                 }
                 nodeClicked = true
                 return true
@@ -482,6 +511,7 @@ function handleCanvasMouseDown(event) {
       if (!nodeClicked) {
         selectedNodes.value.clear()
       }
+      saveNodeColors()
       drawTree()
     } catch (err) {
       console.error('Invalid tree structure:', err)
@@ -490,12 +520,15 @@ function handleCanvasMouseDown(event) {
     isDrawing = true
     startPoint = { x, y }
   } else if (toolMode.value === 'text') {
-    const text = prompt('請輸入文字筆記：')
-    if (text) {
-      annotations.value.push({ type: 'text', text, x, y })
-      saveAnnotations()
-      drawTree()
-    }
+    // 顯示輸入框，記錄點擊位置作為文字初始位置
+    textInputX.value = Math.min(x, canvasWidth.value - 150)
+    textInputY.value = Math.min(y, canvasHeight.value - 30)
+    textInputValue.value = ''
+    showTextInput.value = true
+    isEditingText.value = false
+    nextTick(() => {
+      if (textInput.value) textInput.value.focus()
+    })
   } else if (toolMode.value === 'edit') {
     const ctx = canvas.value.getContext('2d')
     selectedAnnotation.value = null
@@ -514,8 +547,34 @@ function handleCanvasMouseDown(event) {
         }
       }
     })
+    if (selectedAnnotation.value === null) {
+      isDraggingAnnotation = false
+    }
     drawTree()
   }
+}
+
+function handleCanvasDoubleClick(event) {
+  if (toolMode.value !== 'edit') return
+  event.preventDefault()
+  const rect = canvas.value.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+
+  const ctx = canvas.value.getContext('2d')
+  annotations.value.forEach((annotation, index) => {
+    if (annotation.type === 'text' && isPointNearText(x, y, annotation.x, annotation.y, annotation.text, ctx)) {
+      selectedAnnotation.value = index
+      textInputX.value = Math.min(annotation.x, canvasWidth.value - 150)
+      textInputY.value = Math.min(annotation.y, canvasHeight.value - 30)
+      textInputValue.value = annotation.text
+      showTextInput.value = true
+      isEditingText.value = true
+      nextTick(() => {
+        if (textInput.value) textInput.value.focus()
+      })
+    }
+  })
 }
 
 function handleCanvasMouseMove(event) {
@@ -543,8 +602,8 @@ function handleCanvasMouseMove(event) {
       annotation.endX += dx
       annotation.endY += dy
     } else if (annotation.type === 'text') {
-      annotation.x += x - dragPoint.x
-      annotation.y += y - dragPoint.y
+      annotation.x = Math.min(x, canvasWidth.value - 150)
+      annotation.y = Math.min(y, canvasHeight.value - 30)
     }
     dragPoint = { x, y }
     saveAnnotations()
@@ -585,16 +644,38 @@ function handleCanvasMouseUp(event) {
   }
 }
 
-function editSelectedAnnotation() {
-  if (selectedAnnotation.value === null) return
-  const annotation = annotations.value[selectedAnnotation.value]
-  if (annotation.type === 'text') {
-    const newText = prompt('請輸入新的文字筆記：', annotation.text)
-    if (newText) {
-      annotation.text = newText
-      saveAnnotations()
-      drawTree()
+function confirmTextInput() {
+  if (textInputValue.value.trim()) {
+    if (isEditingText.value && selectedAnnotation.value !== null) {
+      annotations.value[selectedAnnotation.value].text = textInputValue.value
+    } else {
+      annotations.value.push({
+        type: 'text',
+        text: textInputValue.value,
+        x: textInputX.value,
+        y: textInputY.value
+      })
     }
+    saveAnnotations()
+  }
+  showTextInput.value = false
+  textInputValue.value = ''
+  isEditingText.value = false
+  selectedAnnotation.value = null
+  drawTree()
+}
+
+function editSelectedAnnotation() {
+  if (selectedAnnotation.value !== null && annotations.value[selectedAnnotation.value].type === 'text') {
+    const annotation = annotations.value[selectedAnnotation.value]
+    textInputX.value = Math.min(annotation.x, canvasWidth.value - 150)
+    textInputY.value = Math.min(annotation.y, canvasHeight.value - 30)
+    textInputValue.value = annotation.text
+    showTextInput.value = true
+    isEditingText.value = true
+    nextTick(() => {
+      if (textInput.value) textInput.value.focus()
+    })
   }
 }
 
@@ -611,6 +692,12 @@ function clearAnnotations() {
   annotations.value = []
   selectedAnnotation.value = null
   saveAnnotations()
+  drawTree()
+}
+
+function clearNodeColors() {
+  selectedNodes.value.clear()
+  saveNodeColors()
   drawTree()
 }
 
@@ -759,15 +846,17 @@ onMounted(() => {
   loadCanvasSize()
   loadHistory()
   loadAnnotations()
+  loadNodeColors()
   loadHistoryWidth()
   loadHistoryOffset()
   nextTick(() => drawTree())
 })
 
 watch(
-  [history, treeMode, toolMode, nodeSize, heightBetweenNode, nodeLineLength],
+  [history, treeMode, toolMode, nodeSize, heightBetweenNode, nodeLineLength, selectedNodes],
   () => {
     saveHistory()
+    saveNodeColors()
     drawTree()
   },
   { deep: true }
@@ -783,6 +872,16 @@ canvas {
   position: relative;
   display: inline-block;
 }
+
+.text-input {
+  width: 200px;
+  padding: 4px;
+  font-size: 16px;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
 .setting-grid {
   display: grid;
   gap: 12px;
