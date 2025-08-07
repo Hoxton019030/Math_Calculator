@@ -450,6 +450,39 @@ function isPointNearText(x, y, textX, textY, text, ctx) {
   return x >= textX && x <= textX + width && y >= textY && y <= textY + height
 }
 
+function isPointNearNode(x, y, node) {
+  if (node.isPlaceholder) return false
+  if (node.isSquare) {
+    const rectSize = nodeSize.value / 1.33
+    return x >= node.x + 40 - rectSize && x <= node.x + 40 + rectSize && y >= node.y + 40 - rectSize && y <= node.y + 40 + rectSize
+  } else {
+    const dx = x - (node.x + 40)
+    const dy = y - (node.y + 40)
+    return Math.sqrt(dx * dx + dy * dy) <= nodeSize.value
+  }
+}
+
+function isPointOnNode(x, y) {
+  try {
+    const forest = parseForest(inputText.value)
+    let xOffset = { x: 0 }
+    for (const tree of forest) {
+      const treeWithPos = calculatePositions(tree, 0, xOffset)
+      function checkNode(node) {
+        if (isPointNearNode(x, y, node)) return true
+        for (let child of node.children) {
+          if (checkNode(child)) return true
+        }
+        return false
+      }
+      if (checkNode(treeWithPos)) return true
+    }
+  } catch (err) {
+    console.error('Invalid tree structure:', err)
+  }
+  return false
+}
+
 function handleCanvasMouseDown(event) {
   event.preventDefault()
   const rect = canvas.value.getBoundingClientRect()
@@ -478,9 +511,9 @@ function handleCanvasMouseDown(event) {
               if (x >= node.x + 40 - rectSize && x <= node.x + 40 + rectSize && y >= node.y + 40 - rectSize && y <= node.y + 40 + rectSize) {
                 const nodeKey = `${node.x},${node.y}`
                 if (selectedNodes.value.has(nodeKey)) {
-                  selectedNodes.value.delete(nodeKey)
+                  selectedNodes.value.delete(nodeKey) // Toggle off if already selected
                 } else {
-                  selectedNodes.value.set(nodeKey, nodeColor.value)
+                  selectedNodes.value.set(nodeKey, nodeColor.value) // Set color if not selected
                 }
                 nodeClicked = true
                 return true
@@ -491,9 +524,9 @@ function handleCanvasMouseDown(event) {
               if (Math.sqrt(dx * dx + dy * dy) <= size) {
                 const nodeKey = `${node.x},${node.y}`
                 if (selectedNodes.value.has(nodeKey)) {
-                  selectedNodes.value.delete(nodeKey)
+                  selectedNodes.value.delete(nodeKey) // Toggle off if already selected
                 } else {
-                  selectedNodes.value.set(nodeKey, nodeColor.value)
+                  selectedNodes.value.set(nodeKey, nodeColor.value) // Set color if not selected
                 }
                 nodeClicked = true
                 return true
@@ -508,8 +541,9 @@ function handleCanvasMouseDown(event) {
         checkNode(treeWithPos)
       }
 
-      if (!nodeClicked) {
-        selectedNodes.value.clear()
+      // Only clear node colors if clicking on a selected node, not on blank canvas
+      if (!nodeClicked && (x < 0 || x > canvasWidth.value || y < 0 || y > canvasHeight.value)) {
+        // Do nothing if clicking outside canvas
       }
       saveNodeColors()
       drawTree()
@@ -567,25 +601,31 @@ function handleCanvasDoubleClick(event) {
     return
   }
 
-  // 檢查是否點擊在現有文字上
+  // 檢查是否點擊在現有文字或節點上
   let textClicked = false
-  annotations.value.forEach((annotation, index) => {
-    if (annotation.type === 'text' && isPointNearText(x, y, annotation.x, annotation.y, annotation.text, ctx)) {
-      selectedAnnotation.value = index
-      textInputX.value = Math.min(annotation.x, canvasWidth.value - 150)
-      textInputY.value = Math.min(annotation.y, canvasHeight.value - 30)
-      textInputValue.value = annotation.text
-      showTextInput.value = true
-      isEditingText.value = true
-      textClicked = true
-      nextTick(() => {
-        if (textInput.value) textInput.value.focus()
-      })
-    }
-  })
+  let nodeClicked = isPointOnNode(x, y)
 
-  // 如果沒有點擊在文字上，則在空白處新增文字
-  if (!textClicked) {
+  if (!nodeClicked) {
+    annotations.value.forEach((annotation, index) => {
+      if (annotation.type === 'text' && isPointNearText(x, y, annotation.x, annotation.y, annotation.text, ctx)) {
+        toolMode.value = 'edit' // 切換到編輯模式
+        selectedAnnotation.value = index
+        textInputX.value = Math.min(annotation.x, canvasWidth.value - 150)
+        textInputY.value = Math.min(annotation.y, canvasHeight.value - 30)
+        textInputValue.value = annotation.text
+        showTextInput.value = true
+        isEditingText.value = true
+        textClicked = true
+        nextTick(() => {
+          if (textInput.value) textInput.value.focus()
+        })
+      }
+    })
+  }
+
+  // 如果沒有點擊在文字或節點上，則在空白處新增文字
+  if (!textClicked && !nodeClicked) {
+    toolMode.value = 'text' // 切換到添加文字模式
     textInputX.value = Math.min(x, canvasWidth.value - 150)
     textInputY.value = Math.min(y, canvasHeight.value - 30)
     textInputValue.value = ''
