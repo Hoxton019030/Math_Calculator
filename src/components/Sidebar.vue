@@ -23,6 +23,11 @@
               基向量變化視覺化
             </router-link>
           </li>
+           <li class="mb-2">
+            <router-link class="text-white text-decoration-none" to="/linear-algebra/Math_Practice">
+              十位數加減練習
+            </router-link>
+          </li>
         </ul>
       </div>
 
